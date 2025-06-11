@@ -2,7 +2,7 @@
 #define TLEPROCESSOR_H
 
 #include "NoradProcessor.h"
-#include "INoradScheduleSaver.h"
+#include "ScheduleSaver/INoradScheduleSaver.h"
 #include <QObject>
 
 class CTleProcessor : public QObject

@@ -10,7 +10,7 @@
 #include <LIBS/Include/libsgp4/CoordGeodetic.h>
 #include <LIBS/Include/libsgp4/CoordTopocentric.h>
 
-#include "INoradScheduleSaver.h"
+#include "ScheduleSaver/INoradScheduleSaver.h"
 
 
 class CNoradProcessor : public QObject
