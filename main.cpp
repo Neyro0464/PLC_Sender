@@ -2,6 +2,7 @@
 #include <QFileInfo>
 #include <QDir>
 
+
 #include "TleProcessor.h"
 #include "ScheduleSaver/FileNoradScheduleSaver.h"
 
@@ -26,7 +27,6 @@ int main()
     }
     QSettings settings(settingsFilePath, QSettings::IniFormat);
     settings.beginGroup("ObserverConfiguration");
-
     CTleProcessor tmp(std::move(saver), settings.value("Latitude").toDouble(), settings.value("Longitude").toDouble(), settings.value("Altitude").toDouble());
     tmp.loadTleFile(tleFilePath.toStdString());
     tmp.processTleData(settings.value("numKA").toUInt());
