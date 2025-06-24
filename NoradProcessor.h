@@ -31,7 +31,7 @@ public:
         NORAD_IN_ZONE = 0,
         NORAD_LESS = 1,
         NORAD_MORE = 2,
-        NORAD_LIMIT_HOURS = 6,
+        NORAD_LIMIT_HOURS = 24,
     };
 
     struct COORDS {

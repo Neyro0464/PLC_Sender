@@ -1,22 +1,18 @@
 QT = core
-QT += network
 CONFIG += c++17 cmdline
-
-# You can make your code fail to compile if it uses deprecated APIs.
-# In order to do so, uncomment the following line.
-#DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 DESTDIR = $$PWD
 INCLUDEPATH += $$PWD/LIBS/Include/
 DEPENDPATH += $$PWD/LIBS/Include//
 
 unix:!macx: LIBS += -L$$PWD/LIBS/Bin/ -lsgp4s
+LIBS += -lssh
 
 SOURCES += \
         ScheduleSaver/DatabaseNoradScheduleSaver.cpp \
         ScheduleSaver/FileNoradScheduleSaver.cpp \
         NoradProcessor.cpp \
-        SenderPLC/SnmpSender.cpp \
+        FileSender/SftpFileSender.cpp \
         TleProcessor.cpp \
         main.cpp
 
@@ -27,6 +23,7 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 DISTFILES += \
     # LIBS/Bin/libsgp4s.so \
+    NoradSchedule.txt \
     TLE.txt \
     settings.ini
 
@@ -34,8 +31,8 @@ HEADERS += \
     ScheduleSaver/DatabaseNoradScheduleSaver.h \
     ScheduleSaver/FileNoradScheduleSaver.h \
     ScheduleSaver/INoradScheduleSaver.h \
-    SenderPLC/ISenderPLC.h \
     NoradProcessor.h \
-    SenderPLC/SnmpSender.h \
+    FileSender/IFileSenderPLC.h \
+    FileSender/SftpFileSender.h \
     TleProcessor.h
 

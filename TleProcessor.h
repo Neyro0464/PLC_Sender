@@ -17,7 +17,6 @@ public:
 private:
     QScopedPointer<CNoradProcessor> m_noradPrc;
     std::shared_ptr<INoradScheduleSaver> m_noradSaver;
-
     std::vector<NORAD_SCHEDULE> m_vecNoradSchedule;
 };
 
