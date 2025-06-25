@@ -41,10 +41,20 @@ int main(int argc, char *argv[]) {
 
     settings.beginGroup("ObserverConfiguration");
     CTleProcessor tmp(std::move(saver), settings.value("Latitude").toDouble(), settings.value("Longitude").toDouble(), settings.value("Altitude").toDouble());
+    QObject::connect(&tmp, &CTleProcessor::allOperationsFinished, [](bool success) {
+        if (!success) {
+            qDebug() << "One or more operations failed. Check logs for details.";
+        }
+        qDebug() << "All operations completed, exiting...";
+        QCoreApplication::exit(0);
+    });
+
     tmp.downloadTleFromUrl(settings.value("numKA").toUInt(), "tmpTLE.txt");
     tmp.loadTleFile(tleFilePath.toStdString());
     tmp.processTleData(settings.value("numKA").toUInt());
+
     settings.endGroup();
+
 
     // // Sending formed file to PLC by SFTP
     // settings.beginGroup("SshConnection");
@@ -58,4 +68,7 @@ int main(int argc, char *argv[]) {
     // sender->send();
 
     return a.exec();
+
+
+
 }

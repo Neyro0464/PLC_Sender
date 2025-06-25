@@ -17,6 +17,9 @@ public:
     bool loadTleFile(const std::string& file);
     bool processTleData(const uint32_t satelliteNumber);
 
+signals:
+    void allOperationsFinished(bool success);
+
 private:
     QScopedPointer<CNoradProcessor> m_noradPrc;
     std::shared_ptr<INoradScheduleSaver> m_noradSaver;

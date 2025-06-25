@@ -18,40 +18,36 @@ CTleProcessor::CTleProcessor(std::unique_ptr<INoradScheduleSaver> saver, double 
 
 
 bool CTleProcessor::downloadTleFromUrl(const uint32_t satelliteNumber, const std::string& savePath){
-    QNetworkAccessManager manager;
-
-    // Сайт с которого качаем TLE файл
+    QNetworkAccessManager *manager = new QNetworkAccessManager(this);
     QString urlString = QString("https://celestrak.org/NORAD/elements/gp.php?CATNR=%1&FORMAT=TLE").arg(QString::number(satelliteNumber));
     QUrl url(urlString);
     QNetworkRequest request(url);
-
+    request.setTransferTimeout(10000); // Таймаут 10 секунд
     qDebug() << "Downloading TLE data for " << satelliteNumber;
 
-    QNetworkReply *reply = manager.get(request);
-
-    // Создаем цикл, чтобы дождаться окончания скачивания.
-    QEventLoop loop;
-    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-    loop.exec();
-
-    if (reply->error() == QNetworkReply::NoError) {
-        QString outputFile = QString::fromStdString(savePath);
-        QFile file(outputFile);
-        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            file.write(reply->readAll());
-            file.close();
-            qDebug() << "Data successfully saved to" << outputFile;
+    QNetworkReply *reply = manager->get(request);
+    connect(reply, &QNetworkReply::finished, this, [=]() {
+        bool success = false;
+        if (reply->error() == QNetworkReply::NoError) {
+            QString outputFile = QString::fromStdString(savePath);
+            QFile file(outputFile);
+            if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                file.write(reply->readAll());
+                file.close();
+                qDebug() << "Data successfully saved to" << outputFile;
+                success = true;
+            } else {
+                qDebug() << "Error: Unable to open file" << outputFile << "for writing";
+            }
         } else {
-            qDebug() << "Error: Unable to open file" << outputFile << "for writing";
-            return false;
+            qDebug() << "Error downloading data:" << reply->errorString();
         }
-    } else {
-        qDebug() << "Error downloading data:" << reply->errorString();
-        return false;
-    }
+        reply->deleteLater();
+        manager->deleteLater();
 
-    reply->deleteLater();
-    return true;
+        emit allOperationsFinished(success);
+    });
+    return true; // Запрос инициирован
 }
 
 bool CTleProcessor::loadTleFile(const std::string& file)
