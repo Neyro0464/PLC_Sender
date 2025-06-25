@@ -1,3 +1,4 @@
+#include <QCoreApplication>
 #include <QSettings>
 #include <QFileInfo>
 #include <QDir>
@@ -6,8 +7,11 @@
 #include "ScheduleSaver/FileNoradScheduleSaver.h"
 #include "FileSender/SftpFileSender.h"
 
-int main()
-{
+int main(int argc, char *argv[]) {
+
+    QCoreApplication a(argc, argv);
+
+
     QString tleFilePath = "TLE.txt";                // File with TLE info
     QString settingsFilePath = "settings.ini";      // File with settings
     QString resultFilePath = "NoradSchedule.txt";   // File with results for one satellite
@@ -37,20 +41,21 @@ int main()
 
     settings.beginGroup("ObserverConfiguration");
     CTleProcessor tmp(std::move(saver), settings.value("Latitude").toDouble(), settings.value("Longitude").toDouble(), settings.value("Altitude").toDouble());
+    tmp.downloadTleFromUrl(settings.value("numKA").toUInt(), "tmpTLE.txt");
     tmp.loadTleFile(tleFilePath.toStdString());
     tmp.processTleData(settings.value("numKA").toUInt());
     settings.endGroup();
 
-    // Sending formed file to PLC by SFTP
-    settings.beginGroup("SshConnection");
-    qDebug() << settings.value("host").toString() << settings.value("port").toUInt() <<
-        settings.value("login").toString() << settings.value("pass").toString() <<
-        resultFilePath << resultFilePath;
-    std::unique_ptr<IFileSenderPLC> sender = std::make_unique<SftpFileSender>(settings.value("host").toString(), settings.value("port").toUInt(),
-                                                                              settings.value("login").toString(), settings.value("password").toString(),
-                                                                              resultFilePath, resultFilePath);
-    settings.endGroup();
-    sender->send();
+    // // Sending formed file to PLC by SFTP
+    // settings.beginGroup("SshConnection");
+    // qDebug() << settings.value("host").toString() << settings.value("port").toUInt() <<
+    //     settings.value("login").toString() << settings.value("pass").toString() <<
+    //     resultFilePath << resultFilePath;
+    // std::unique_ptr<IFileSenderPLC> sender = std::make_unique<SftpFileSender>(settings.value("host").toString(), settings.value("port").toUInt(),
+    //                                                                           settings.value("login").toString(), settings.value("password").toString(),
+    //                                                                           resultFilePath, resultFilePath);
+    // settings.endGroup();
+    // sender->send();
 
-    return 0;
+    return a.exec();
 }

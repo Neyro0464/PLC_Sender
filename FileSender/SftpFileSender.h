@@ -14,7 +14,7 @@ class SftpFileSender: public IFileSenderPLC
 public:
     explicit SftpFileSender(const QString& host, const quint16 port,
                             const QString& user, const QString& password,
-                            const QString& localPath, const QString& remotePath);
+                            const QString& localPath = "NoradSchedule.txt", const QString& remotePath = "NoradSchedule.txt");
     bool send() override;
     // Function to change host address
     void setDestination(const QString& host) override;

@@ -8,7 +8,7 @@
 #include <optional>
 
 
-SftpFileSender::SftpFileSender(const QString& host, const quint16 port, const QString& user, const QString& password, const QString& localPath = "NoradSchedule.txt", const QString& remotePath = "NoradSchedule.txt")
+SftpFileSender::SftpFileSender(const QString& host, const quint16 port, const QString& user, const QString& password, const QString& localPath, const QString& remotePath)
     :m_localPath(localPath), m_remotePath(remotePath), m_host(host), m_port(port), m_user(user), m_password(password)
 {}
 

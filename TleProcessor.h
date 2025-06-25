@@ -5,11 +5,14 @@
 #include "ScheduleSaver/INoradScheduleSaver.h"
 #include <QObject>
 
+
 class CTleProcessor : public QObject
 {
     Q_OBJECT
 public:
     CTleProcessor(std::unique_ptr<INoradScheduleSaver> saver, double lat, double lon, double altm);
+
+    bool downloadTleFromUrl(const uint32_t satelliteNumber, const std::string& savePath = "TLE.txt");
 
     bool loadTleFile(const std::string& file);
     bool processTleData(const uint32_t satelliteNumber);

@@ -1,4 +1,5 @@
 QT = core
+QT += network
 CONFIG += c++17 cmdline
 
 DESTDIR = $$PWD
@@ -23,9 +24,8 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 DISTFILES += \
     # LIBS/Bin/libsgp4s.so \
-    NoradSchedule.txt \
     TLE.txt \
-    settings.ini
+    settings.ini \
 
 HEADERS += \
     ScheduleSaver/DatabaseNoradScheduleSaver.h \
