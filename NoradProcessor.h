@@ -34,30 +34,17 @@ public:
         NORAD_LIMIT_HOURS = 24,
     };
 
-    struct COORDS {
-        libsgp4::CoordTopocentric topo;
-        libsgp4::CoordGeodetic geo;
-    };
-
     struct RAW_TLE {
         std::string s1;
         std::string s2;
         std::string s3;
     };
 
-    // struct NORAD_DATA {
-    //     uint32_t noradNumber;
-    //     QString name;
-    //     QString fname;
-    //     QString onTime;
-    //     COORDS coords;
-    // };
-
     explicit CNoradProcessor(QObject *parent = nullptr, double lat = 0, double lon = 0, double altm = 0);
 
     NORAD_ERROR genSchedule(const uint32_t &satelliteNumber, std::vector<NORAD_SCHEDULE>& vecNoradSchedule,
                             std::shared_ptr<INoradScheduleSaver> saver,
-                            const int delayMks = 0, libsgp4::DateTime onDate = libsgp4::DateTime::Now(true)) const;
+                            const int delayMks = 0, libsgp4::DateTime onDate = libsgp4::DateTime::Now(true), const int posCalcDelaySec = 2) const;
 
     NORAD_ERROR loadToBufferTLE(const std::string &fileName);
 

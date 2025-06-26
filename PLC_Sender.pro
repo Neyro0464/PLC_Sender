@@ -15,6 +15,7 @@ SOURCES += \
         NoradProcessor.cpp \
         FileSender/SftpFileSender.cpp \
         TleProcessor.cpp \
+        Utility.cpp \
         main.cpp
 
 # Default rules for deployment.
@@ -34,5 +35,6 @@ HEADERS += \
     NoradProcessor.h \
     FileSender/IFileSenderPLC.h \
     FileSender/SftpFileSender.h \
-    TleProcessor.h
+    TleProcessor.h \
+    Utility.h
 

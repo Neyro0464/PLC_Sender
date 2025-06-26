@@ -137,7 +137,7 @@ bool SftpFileSender::send(){
     ssh_disconnect(session.value());
     ssh_free(session.value());
 
-    qCritical() << "File uploaded successfully!";
+    qInfo() << "File uploaded successfully!";
     return true;
 
 }

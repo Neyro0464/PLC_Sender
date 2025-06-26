@@ -12,7 +12,8 @@ CNoradProcessor::NORAD_ERROR CNoradProcessor::genSchedule(const uint32_t &satell
                                                           std::vector<NORAD_SCHEDULE> &vecNoradSchedule,
                                                           std::shared_ptr<INoradScheduleSaver> saver,
                                                           const int delayMks,
-                                                          libsgp4::DateTime onDate) const
+                                                          libsgp4::DateTime onDate,
+                                                          const int posCalcDelaySec) const
 {
     if (m_SatTleMap.empty()) return NORAD_MAP_EMPTY;
 
@@ -22,7 +23,6 @@ CNoradProcessor::NORAD_ERROR CNoradProcessor::genSchedule(const uint32_t &satell
     const RAW_TLE& rawStr = it.value();
     vecNoradSchedule.clear();
 
-    // std::vector<NORAD_SCHEDULE> vecNoradSchedule{};
     try {
 
         libsgp4::Tle tle(rawStr.s1, rawStr.s2, rawStr.s3);
@@ -32,7 +32,7 @@ CNoradProcessor::NORAD_ERROR CNoradProcessor::genSchedule(const uint32_t &satell
         onDate = onDate.AddMicroseconds(delayMks);
         libsgp4::DateTime endDate = onDate.AddHours(NORAD_LIMIT_HOURS);
 
-        int stepMks = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::seconds(2)).count(); // Переделать - убрать хардкод
+        int stepMks = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::seconds(posCalcDelaySec)).count();
 
         while(1) {
 

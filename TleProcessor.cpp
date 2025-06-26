@@ -19,10 +19,12 @@ CTleProcessor::CTleProcessor(std::unique_ptr<INoradScheduleSaver> saver, double 
 
 bool CTleProcessor::downloadTleFromUrl(const uint32_t satelliteNumber, const std::string& savePath){
     QNetworkAccessManager *manager = new QNetworkAccessManager(this);
+
     QString urlString = QString("https://celestrak.org/NORAD/elements/gp.php?CATNR=%1&FORMAT=TLE").arg(QString::number(satelliteNumber));
     QUrl url(urlString);
     QNetworkRequest request(url);
     request.setTransferTimeout(10000); // Таймаут 10 секунд
+
     qDebug() << "Downloading TLE data for " << satelliteNumber;
 
     QNetworkReply *reply = manager->get(request);
@@ -47,7 +49,7 @@ bool CTleProcessor::downloadTleFromUrl(const uint32_t satelliteNumber, const std
 
         emit allOperationsFinished(success);
     });
-    return true; // Запрос инициирован
+    return true;
 }
 
 bool CTleProcessor::loadTleFile(const std::string& file)
