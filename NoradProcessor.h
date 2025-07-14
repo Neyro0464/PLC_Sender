@@ -44,7 +44,8 @@ public:
 
     NORAD_ERROR genSchedule(const uint32_t &satelliteNumber, std::vector<NORAD_SCHEDULE>& vecNoradSchedule,
                             std::shared_ptr<INoradScheduleSaver> saver,
-                            const int delayMks = 0, libsgp4::DateTime onDate = libsgp4::DateTime::Now(true), const int posCalcDelaySec = 2) const;
+                            const uint32_t posCalcDelayMkSec = 15000000,
+                            const int delayMks = 0, libsgp4::DateTime onDate = libsgp4::DateTime::Now(true)) const;
 
     NORAD_ERROR loadToBufferTLE(const std::string &fileName);
 

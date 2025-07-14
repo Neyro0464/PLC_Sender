@@ -61,11 +61,11 @@ bool CTleProcessor::loadTleFile(const std::string& file)
     return true;
 }
 
-bool CTleProcessor::processTleData(const uint32_t satelliteNumber)
+bool CTleProcessor::processTleData(const uint32_t satelliteNumber, const uint32_t dt_mks)
 {
     if(!m_noradPrc) return false;
 
-    m_noradPrc->genSchedule(satelliteNumber, m_vecNoradSchedule, m_noradSaver);
+    qDebug() << m_noradPrc->genSchedule(satelliteNumber, m_vecNoradSchedule, m_noradSaver, dt_mks);
 
     return true;
 }

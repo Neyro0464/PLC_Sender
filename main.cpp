@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
     qInstallMessageHandler(Utility::СustomMessageHandler);
     Utility::СlearLogFile();
 
-    QString tleFilePath = "TLE.txt";                // File with TLE info
+    QString tleFilePath = "definiteTLE.txt";                // File with TLE info
     QString settingsFilePath = "settings.ini";      // File with settings
     QString resultFilePath = "NoradSchedule.txt";   // File with results for one satellite
 
@@ -42,9 +42,9 @@ int main(int argc, char *argv[]) {
         QCoreApplication::exit(0);
     });
 
-    tmp.downloadTleFromUrl(settings.value("numKA").toUInt(), "definiteTLE.txt");
+    tmp.downloadTleFromUrl(settings.value("numKA").toUInt(), tleFilePath.toStdString());
     tmp.loadTleFile(tleFilePath.toStdString());
-    tmp.processTleData(settings.value("numKA").toUInt());
+    tmp.processTleData(settings.value("numKA").toUInt(), settings.value("dt_mks").toUInt());
 
     settings.endGroup();
 

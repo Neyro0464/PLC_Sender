@@ -15,7 +15,7 @@ public:
     bool downloadTleFromUrl(const uint32_t satelliteNumber, const std::string& savePath = "TLE.txt");
 
     bool loadTleFile(const std::string& file);
-    bool processTleData(const uint32_t satelliteNumber);
+    bool processTleData(const uint32_t satelliteNumber, const uint32_t dt_mks);
 
 signals:
     void allOperationsFinished(bool success);
