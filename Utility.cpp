@@ -4,6 +4,10 @@
 #include <QTextStream>
 #include <QDateTime>
 
+int32_t Utility::CalcChecksum(const int32_t a, const int32_t b, const int32_t c){
+    return a ^ b ^ c;
+}
+
 void Utility::CreateSettingsFile(const QString& settingsFilePath){
     QSettings settings(settingsFilePath, QSettings::IniFormat);
     settings.beginGroup("ObserverConfiguration");

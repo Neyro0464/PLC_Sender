@@ -2,6 +2,8 @@
 #define FILENORADSCHEDULESAVER_H
 
 #include <string>
+#include <QString>
+
 
 #include "INoradScheduleSaver.h"
 
@@ -22,6 +24,10 @@ public:
     bool load(std::vector<NORAD_SCHEDULE>& vecNoradSchedule) const override;
 
     static void trim(std::string &str);
+
+    static QString TrimUTC(const libsgp4::DateTime onDate);
+
+    static void FullfilLine(QString &line);
 
     static bool parseDateTime(const std::string &dateTimeStr,
                               int &year, int &month, int &day,

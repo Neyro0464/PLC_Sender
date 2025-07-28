@@ -10,6 +10,7 @@ unix:!macx: LIBS += -L$$PWD/LIBS/Bin/ -lsgp4s
 LIBS += -lssh
 
 SOURCES += \
+        Receiver/IReceiver.cpp \
         ScheduleSaver/DatabaseNoradScheduleSaver.cpp \
         ScheduleSaver/FileNoradScheduleSaver.cpp \
         NoradProcessor.cpp \
@@ -29,6 +30,7 @@ DISTFILES += \
     settings.ini \
 
 HEADERS += \
+    Receiver/IReceiver.h \
     ScheduleSaver/DatabaseNoradScheduleSaver.h \
     ScheduleSaver/FileNoradScheduleSaver.h \
     ScheduleSaver/INoradScheduleSaver.h \

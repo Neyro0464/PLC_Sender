@@ -1,21 +1,43 @@
 #include <fstream>
-
+#include "Utility.h"
 #include "FileNoradScheduleSaver.h"
+#include <cmath>
 
 bool FileNoradScheduleSaver::save(const std::vector<NORAD_SCHEDULE>& vecNoradSchedule) const {
     std::ofstream outFile(m_filePath);
     if (!outFile.is_open()) {
         return false;
     }
+    QString date = TrimUTC(libsgp4::DateTime::Now());
+    QString resultLine{};
 
+    //Reserved values:
+    int reserved1 = 0;
+    int reserved2 = 0;
+    int reserved3 = 0;
+
+    int32_t checksum{};
+    checksum ^= Utility::CalcChecksum(reserved1, reserved2, reserved3);
     for (const auto& schedule : vecNoradSchedule) {
-        outFile << schedule.onDate.ToString() << "," << schedule.azm  << "," << schedule.elv << ";\n";
+        checksum ^= Utility::CalcChecksum(schedule.onDate.Ticks(), schedule.azm*1000, schedule.elv*1000);
+    }
+    resultLine = date + ';' + QString::number(vecNoradSchedule.size()) + ';' + QString::number(checksum) + ';';
+    FullfilLine(resultLine);
+    outFile << resultLine.toStdString();
+    resultLine = QString::number(reserved1) + ';' + QString::number(reserved2) + ';' + QString::number(reserved3) + ';';
+    FullfilLine(resultLine);
+    outFile << resultLine.toStdString();
+
+    for (const auto& schedule : vecNoradSchedule) {// 37 symbols on the line
+        date = TrimUTC(schedule.onDate);
+        resultLine = date + ';' + QString::number(schedule.azm) + ';' + QString::number(schedule.elv) + ';';
+        FullfilLine(resultLine);
+        outFile << resultLine.toStdString();
     }
     outFile.close();
     return true;
 }
 
-// Есть ли смысл передавать адреса &float?
 bool FileNoradScheduleSaver::saveStep(  const float estAzm, const float curAzm,
                                         const float estElv, const float curElv,
                                         const float errAzm, const float errElv
@@ -100,18 +122,30 @@ void FileNoradScheduleSaver::trim(std::string &str) {
     str.erase(str.find_last_not_of(" \t") + 1);
 }
 
+QString FileNoradScheduleSaver::TrimUTC(const libsgp4::DateTime onDate){
+    QString res = QString::fromStdString(onDate.ToString());
+    res.remove(".000000 UTC");
+    return res;
+}
+
+void FileNoradScheduleSaver::FullfilLine(QString &line){
+    while (line.size() < 37) {
+        line.append(' ');
+    }
+    line.append("\n");
+}
+
 bool FileNoradScheduleSaver::parseDateTime(const std::string &dateTimeStr,
                           int &year, int &month, int &day,
                           int &hour, int &minute, int &second, int &microsecond)
 {
     std::istringstream iss(dateTimeStr);
     char sep1, sep2, sep3, sep4, sep5; // Разделители "-", " ", ":", ".", " "
-    std::string timezone;
 
     iss >> year >> sep1 >> month >> sep2 >> day
-        >> hour >> sep3 >> minute >> sep4 >> second >> sep5 >> microsecond >> timezone;
+        >> hour >> sep3 >> minute >> sep4 >> second >> sep5 >> microsecond;
 
-    if (sep1 != '-' || sep2 != '-' || sep3 != ':' || sep4 != ':' || sep5 != '.' || timezone != "UTC") {
+    if (sep1 != '-' || sep2 != '-' || sep3 != ':' || sep4 != ':' || sep5 != '.') {
         return false;
     }
 
