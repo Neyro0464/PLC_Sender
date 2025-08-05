@@ -4,3 +4,5 @@ PLC_Sender.exe
 *.user
 PLC_Sender
 PLC_Sender/
+*.log
+

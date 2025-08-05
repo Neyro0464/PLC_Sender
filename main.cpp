@@ -6,7 +6,6 @@
 
 #include "TleProcessor.h"
 #include "ScheduleSaver/FileNoradScheduleSaver.h"
-#include "FileSender/SftpFileSender.h"
 #include "Utility.h"
 
 int main(int argc, char *argv[]) {
@@ -26,25 +25,51 @@ int main(int argc, char *argv[]) {
     // Create file if it doesn't exists
     if (!settingsFileInfo.exists()) {
         Utility::CreateSettingsFile(settingsFilePath);
-        qInfo() << "Created new settings file.";
+        qInfo() << "[Main]: Created new settings file (settings.ini).";
     }
 
 
     QSettings settings(settingsFilePath, QSettings::IniFormat);
+    settings.beginGroup("TLEbySpaceTrack");
+    QString login = settings.value("login").toString();
+    QString pass = settings.value("pass").toString();
+    settings.endGroup();
+    if(login.isEmpty() or pass.isEmpty()){
+        qCritical() << "[Main]:[settings]: no login or pass!";
+    }
+
     settings.beginGroup("ObserverConfiguration");
     CTleProcessor tmp(std::move(saver), settings.value("Latitude").toDouble(), settings.value("Longitude").toDouble(), settings.value("Altitude").toDouble());
-
-    QObject::connect(&tmp, &CTleProcessor::allOperationsFinished, [](bool success) {
+    uint numKA = settings.value("numKA").toUInt();
+    uint dt_mks = settings.value("dt_mks").toUInt();
+    // QObject::connect(&tmp, &CTleProcessor::allOperationsFinished, [](bool success) {
+    //     if (!success) {
+    //         qCritical() << "One or more operations failed. Check logs for details.";
+    //     }
+    //     qInfo() << "All operations completed, exiting...";
+    //     QCoreApplication::exit(0);
+    // });
+    // Подключаем сигналы
+    QObject::connect(&tmp, &CTleProcessor::tleDownloaded, [&](bool success) {
         if (!success) {
-            qCritical() << "One or more operations failed. Check logs for details.";
+            qCritical() << "[Main]: Failed to download TLE. Exiting...";
+            QCoreApplication::exit(1);
+            return;
         }
-        qInfo() << "All operations completed, exiting...";
+
+        // Если загрузка успешна, загружаем и обрабатываем TLE
+        tmp.loadTleFile(tleFilePath.toStdString());
+        tmp.processTleData(numKA, dt_mks);
+
+        // Завершаем приложение после обработки
+        qInfo() << "[Main]: All operations completed, exiting...";
         QCoreApplication::exit(0);
     });
 
-    tmp.downloadTleFromUrl(settings.value("numKA").toUInt(), tleFilePath.toStdString());
-    tmp.loadTleFile(tleFilePath.toStdString());
-    tmp.processTleData(settings.value("numKA").toUInt(), settings.value("dt_mks").toUInt());
+    tmp.downloadTleFromUrl(numKA, tleFilePath.toStdString(), login.toStdString(), pass.toStdString());
+
+    /*tmp.loadTleFile(tleFilePath.toStdString());
+    tmp.processTleData(settings.value("numKA").toUInt(), settings.value("dt_mks").toUInt());*/
 
     settings.endGroup();
 

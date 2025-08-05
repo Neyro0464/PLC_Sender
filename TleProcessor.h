@@ -12,13 +12,16 @@ class CTleProcessor : public QObject
 public:
     CTleProcessor(std::unique_ptr<INoradScheduleSaver> saver, double lat, double lon, double altm);
 
+    // Celestrak site parsing
     bool downloadTleFromUrl(const uint32_t satelliteNumber, const std::string& savePath = "TLE.txt");
+    // Space-track site parsing
+    bool downloadTleFromUrl(const uint32_t satelliteNumber, const std::string& savePath, const std::string& username, const std::string& password);
 
     bool loadTleFile(const std::string& file);
     bool processTleData(const uint32_t satelliteNumber, const uint32_t dt_mks);
 
 signals:
-    void allOperationsFinished(bool success);
+    void tleDownloaded(bool success);
 
 private:
     QScopedPointer<CNoradProcessor> m_noradPrc;
