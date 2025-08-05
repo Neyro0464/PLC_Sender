@@ -5,4 +5,4 @@ PLC_Sender.exe
 PLC_Sender
 PLC_Sender/
 *.log
-
+*settings.ini
