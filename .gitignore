@@ -6,3 +6,5 @@ PLC_Sender
 PLC_Sender/
 *.log
 *settings.ini
+*.o
+./libsgp4.so
