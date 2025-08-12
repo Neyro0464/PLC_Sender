@@ -9,3 +9,5 @@ PLC_Sender/
 *.o
 ./libsgp4.so
 moc*
+.qmake.stash
+
