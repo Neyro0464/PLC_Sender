@@ -8,3 +8,4 @@ PLC_Sender/
 *settings.ini
 *.o
 ./libsgp4.so
+moc*
