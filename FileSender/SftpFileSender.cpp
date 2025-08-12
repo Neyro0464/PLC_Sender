@@ -5,7 +5,7 @@
 
 #include <QFile>
 #include <QDebug>
-#include <optional>
+
 
 
 SftpFileSender::SftpFileSender(const QString& host, const quint16 port, const QString& user, const QString& password, const QString& localPath, const QString& remotePath)

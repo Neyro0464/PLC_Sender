@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QMap>
+#include <memory>
 
 #include <LIBS/Include/libsgp4/Tle.h>
 #include <LIBS/Include/libsgp4/SGP4.h>

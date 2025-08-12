@@ -1,4 +1,5 @@
 #include "UtilResponseParser.h"
+#include <QDebug>
 
 
 void UtilResponseParser::ResponseHeader::print() const

@@ -3,6 +3,7 @@
 #include <QFile>
 #include <QTextStream>
 #include <QDateTime>
+#include <QDebug>
 
 int32_t Utility::CalcChecksum(const int32_t a, const int32_t b, const int32_t c){
     return a ^ b ^ c;

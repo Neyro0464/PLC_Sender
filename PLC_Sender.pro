@@ -28,7 +28,7 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 DISTFILES += \
     # LIBS/Bin/libsgp4s.so \
     ServiceFiles/settings.ini \
-    build_project.sh
+    setup.sh
 
 HEADERS += \
     Receiver/ReceiverUDP.h \

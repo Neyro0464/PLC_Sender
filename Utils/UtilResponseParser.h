@@ -4,6 +4,7 @@
 #include <QDateTime>
 #include <QObject>
 #include <QByteArray>
+#include <optional>
 
 class UtilResponseParser
 {

@@ -2,6 +2,7 @@
 #define SFTPFILESENDER_H
 
 #include <QString>
+#include <optional>
 
 #include "IFileSenderPLC.h"
 
