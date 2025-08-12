@@ -20,14 +20,14 @@ bool SftpFileSender::connectToPlc(const ssh_session& session){
 
     // Подключение
     if (ssh_connect(session) != SSH_OK) {
-        qCritical() << "Connection failed: " << ssh_get_error(session);
+        qCritical() << "[SftpFileSender::connectToPlc]: Connection failed: " << ssh_get_error(session);
         ssh_free(session);
         return false;
     }
 
     // Аутентификация по паролю
     if (ssh_userauth_password(session, nullptr, m_password.toUtf8().constData()) != SSH_AUTH_SUCCESS) {
-        qCritical() << "Authentication failed: " << ssh_get_error(session) << '\n';
+        qCritical() << "[SftpFileSender::connectToPlc]: Authentication failed: " << ssh_get_error(session) << '\n';
         ssh_disconnect(session);
         ssh_free(session);
         return false;
@@ -38,7 +38,7 @@ bool SftpFileSender::connectToPlc(const ssh_session& session){
 std::optional<ssh_session> SftpFileSender::makeSshSession(){
     ssh_session session = ssh_new();
     if (!session) {
-        qCritical() << "Failed to create SSH session: " << ssh_get_error(session) << '\n';
+        qCritical() << "[SftpFileSender::makeSshSession]: Failed to create SSH session: " << ssh_get_error(session) << '\n';
         return std::nullopt;
     }
     // Настройка SSH-сессии
@@ -55,14 +55,14 @@ std::optional<ssh_session> SftpFileSender::makeSshSession(){
 std::optional<sftp_session> SftpFileSender::makeSftpSession(const ssh_session& session){
     sftp_session sftp = sftp_new(session);
     if (!sftp) {
-        qCritical() << "SFTP session creation failed: " << sftp_get_error(sftp) << "\n";
+        qCritical() << "[SftpFileSender::makeSftpSession]: SFTP session creation failed: " << sftp_get_error(sftp) << "\n";
         ssh_disconnect(session);
         ssh_free(session);
         return std::nullopt;
     }
 
     if (sftp_init(sftp) != SSH_OK) {
-        qCritical() << "SFTP initialization failed" << sftp_get_error(sftp);
+        qCritical() << "[SftpFileSender::makeSftpSession]: SFTP initialization failed" << sftp_get_error(sftp);
         sftp_free(sftp);
         ssh_disconnect(session);
         ssh_free(session);
@@ -89,7 +89,7 @@ bool SftpFileSender::send(){
     int access_type = O_WRONLY | O_CREAT | O_TRUNC;
     sftp_file remoteFile = sftp_open(sftp.value(), m_remotePath.toUtf8().constData(), access_type, S_IRWXU);
     if (remoteFile == nullptr) {
-        qCritical() << "Failed to open/create remote file for writing" << ssh_get_error(session.value());
+        qCritical() << "[SftpFileSender::send]: Failed to open/create remote file for writing" << ssh_get_error(session.value());
         sftp_free(sftp.value());
         ssh_disconnect(session.value());
         ssh_free(session.value());
@@ -99,7 +99,7 @@ bool SftpFileSender::send(){
     // Чтение локального файла
     QFile localFile(m_localPath);
     if (!localFile.open(QIODevice::ReadOnly)) {
-        qCritical() << "Failed to open local file" << localFile.errorString();
+        qCritical() << "[SftpFileSender::send]: Failed to open local file" << localFile.errorString();
         sftp_close(remoteFile);
         sftp_free(sftp.value());
         ssh_disconnect(session.value());
@@ -116,14 +116,14 @@ bool SftpFileSender::send(){
         // Чтение куска файла
         QByteArray chunk = localFile.read(chunkSize);
         if (chunk.isEmpty() && !localFile.atEnd()) {
-            qCritical() << "Error reading file chunk";
+            qCritical() << "[SftpFileSender::send]: Error reading file chunk";
             break;
         }
 
         // Запись куска на сервер
         ssize_t written = sftp_write(remoteFile, chunk.constData(), chunk.size());
         if (written != chunk.size()) {
-            qCritical() << "SFTP write error: " << sftp_get_error(sftp.value());
+            qCritical() << "[SftpFileSender::send]: SFTP write error: " << sftp_get_error(sftp.value());
             break;
         }
 
@@ -137,7 +137,7 @@ bool SftpFileSender::send(){
     ssh_disconnect(session.value());
     ssh_free(session.value());
 
-    qInfo() << "File uploaded successfully!";
+    qInfo() << "[SftpFileSender::send]: File uploaded successfully!";
     return true;
 
 }

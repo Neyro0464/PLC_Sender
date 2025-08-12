@@ -16,7 +16,7 @@ bool FileNoradScheduleSaver::save(const std::vector<NORAD_SCHEDULE>& vecNoradSch
     int reserved2 = 0;
     int reserved3 = 0;
 
-    int32_t checksum{};
+    uint32_t checksum{};
     checksum ^= Utility::CalcChecksum(reserved1, reserved2, reserved3);
     for (const auto& schedule : vecNoradSchedule) {
         checksum ^= Utility::CalcChecksum(schedule.onDate.Ticks(), schedule.azm*1000, schedule.elv*1000);

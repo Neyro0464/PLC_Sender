@@ -10,13 +10,14 @@ unix:!macx: LIBS += -L$$PWD/LIBS/Bin/ -lsgp4s
 LIBS += -lssh
 
 SOURCES += \
-        Receiver/IReceiver.cpp \
+        Receiver/ReceiverUDP.cpp \
         ScheduleSaver/DatabaseNoradScheduleSaver.cpp \
         ScheduleSaver/FileNoradScheduleSaver.cpp \
         NoradProcessor.cpp \
         FileSender/SftpFileSender.cpp \
         TleProcessor.cpp \
-        Utility.cpp \
+        Utils/UtilResponseParser.cpp \
+        Utils/Utility.cpp \
         main.cpp
 
 # Default rules for deployment.
@@ -26,11 +27,11 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 DISTFILES += \
     # LIBS/Bin/libsgp4s.so \
-    TLE.txt \
-    settings.ini \
+    ServiceFiles/settings.ini \
+    build_project.sh
 
 HEADERS += \
-    Receiver/IReceiver.h \
+    Receiver/ReceiverUDP.h \
     ScheduleSaver/DatabaseNoradScheduleSaver.h \
     ScheduleSaver/FileNoradScheduleSaver.h \
     ScheduleSaver/INoradScheduleSaver.h \
@@ -38,5 +39,6 @@ HEADERS += \
     FileSender/IFileSenderPLC.h \
     FileSender/SftpFileSender.h \
     TleProcessor.h \
-    Utility.h
+    Utils/UtilResponseParser.h \
+    Utils/Utility.h
 

@@ -35,6 +35,7 @@ public:
 
 private:
     std::string m_filePath;
+
 };
 
 #endif // FILENORADSCHEDULESAVER_H

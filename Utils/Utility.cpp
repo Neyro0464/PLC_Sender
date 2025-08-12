@@ -25,12 +25,17 @@ void Utility::CreateSettingsFile(const QString& settingsFilePath){
     settings.setValue("pass", "password");
     settings.endGroup();
 
+    settings.beginGroup("TLEbySpaceTrack");
+    settings.setValue("login", "");
+    settings.setValue("pass", "");
+    settings.endGroup();
+
 }
 
 void Utility::СustomMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
     // Открываем файл для добавления (append)
-    QFile logFile("app.log");
+    QFile logFile("ServiceFiles/app.log");
     if (!logFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
         return; // Если файл не удалось открыть, ничего не делаем
     }
