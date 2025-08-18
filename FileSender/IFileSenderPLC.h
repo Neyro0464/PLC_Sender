@@ -9,7 +9,6 @@ public:
     virtual bool send() = 0;
     virtual void setDestination(const QString&) = 0;
 
-
 };
 
 #endif // IFILESENDERPLC_H

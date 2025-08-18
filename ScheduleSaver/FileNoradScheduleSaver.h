@@ -22,6 +22,7 @@ public:
     bool clear();
 
     bool load(std::vector<NORAD_SCHEDULE>& vecNoradSchedule) const override;
+    void setCommand(const int cmd) override {m_cmd = cmd;};
 
     static void trim(std::string &str);
 
@@ -35,6 +36,7 @@ public:
 
 private:
     std::string m_filePath;
+    int m_cmd;
 
 };
 

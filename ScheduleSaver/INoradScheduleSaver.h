@@ -26,6 +26,7 @@ public:
     virtual ~INoradScheduleSaver() = default;
     virtual bool save(const std::vector<NORAD_SCHEDULE>& vecNoradSchedule) const = 0;
     virtual bool load(std::vector<NORAD_SCHEDULE>& vecNoradSchedule) const = 0;
+    virtual void setCommand(const int) = 0;
 };
 
 

@@ -34,6 +34,10 @@ int main(int argc, char *argv[]) {
 
 
     QSettings settings(settingsFilePath, QSettings::IniFormat);
+    settings.beginGroup("Command");
+    saver->setCommand(settings.value("cmd").toInt());
+    settings.endGroup();
+
     // Group for log in on Space-Track.org
     settings.beginGroup("TLEbySpaceTrack");
     QString login = settings.value("login").toString();

@@ -14,17 +14,16 @@ bool FileNoradScheduleSaver::save(const std::vector<NORAD_SCHEDULE>& vecNoradSch
     //Reserved values:
     int reserved1 = 0;
     int reserved2 = 0;
-    int reserved3 = 0;
 
     uint32_t checksum{};
-    checksum ^= Utility::CalcChecksum(reserved1, reserved2, reserved3);
+    checksum ^= Utility::CalcChecksum(reserved1, reserved2, m_cmd);
     for (const auto& schedule : vecNoradSchedule) {
         checksum ^= Utility::CalcChecksum(schedule.onDate.Ticks(), schedule.azm*1000, schedule.elv*1000);
     }
     resultLine = date + ';' + QString::number(vecNoradSchedule.size()) + ';' + QString::number(checksum) + ';';
     FullfilLine(resultLine);
     outFile << resultLine.toStdString();
-    resultLine = QString::number(reserved1) + ';' + QString::number(reserved2) + ';' + QString::number(reserved3) + ';';
+    resultLine = QString::number(reserved1) + ';' + QString::number(reserved2) + ';' + QString::number(m_cmd) + ';';
     FullfilLine(resultLine);
     outFile << resultLine.toStdString();
 

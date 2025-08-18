@@ -15,7 +15,6 @@ SftpFileSender::SftpFileSender(const QString& host, const quint16 port, const QS
 void SftpFileSender::setDestination(const QString& host){
     m_host = host;
 }
-
 bool SftpFileSender::connectToPlc(const ssh_session& session){
 
     // Подключение
