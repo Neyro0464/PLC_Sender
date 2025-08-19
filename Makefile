@@ -52,7 +52,8 @@ OBJECTS_DIR   = ./
 
 ####### Files
 
-SOURCES       = Receiver/ReceiverUDP.cpp \
+SOURCES       = FileSender/UdpFileSender.cpp \
+		Receiver/ReceiverUDP.cpp \
 		ScheduleSaver/DatabaseNoradScheduleSaver.cpp \
 		ScheduleSaver/FileNoradScheduleSaver.cpp \
 		NoradProcessor.cpp \
@@ -63,7 +64,8 @@ SOURCES       = Receiver/ReceiverUDP.cpp \
 		main.cpp moc_ReceiverUDP.cpp \
 		moc_NoradProcessor.cpp \
 		moc_TleProcessor.cpp
-OBJECTS       = ReceiverUDP.o \
+OBJECTS       = UdpFileSender.o \
+		ReceiverUDP.o \
 		DatabaseNoradScheduleSaver.o \
 		FileNoradScheduleSaver.o \
 		NoradProcessor.o \
@@ -153,7 +155,8 @@ DIST          = ServiceFiles/settings.ini \
 		/usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/exceptions.prf \
 		/usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/yacc.prf \
 		/usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/lex.prf \
-		PLC_Sender.pro Receiver/ReceiverUDP.h \
+		PLC_Sender.pro FileSender/UdpFileSender.h \
+		Receiver/ReceiverUDP.h \
 		ScheduleSaver/DatabaseNoradScheduleSaver.h \
 		ScheduleSaver/FileNoradScheduleSaver.h \
 		ScheduleSaver/INoradScheduleSaver.h \
@@ -162,7 +165,8 @@ DIST          = ServiceFiles/settings.ini \
 		FileSender/SftpFileSender.h \
 		TleProcessor.h \
 		Utils/UtilResponseParser.h \
-		Utils/Utility.h Receiver/ReceiverUDP.cpp \
+		Utils/Utility.h FileSender/UdpFileSender.cpp \
+		Receiver/ReceiverUDP.cpp \
 		ScheduleSaver/DatabaseNoradScheduleSaver.cpp \
 		ScheduleSaver/FileNoradScheduleSaver.cpp \
 		NoradProcessor.cpp \
@@ -352,8 +356,8 @@ distdir: FORCE
 	@test -d $(DISTDIR) || mkdir -p $(DISTDIR)
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
 	$(COPY_FILE) --parents /usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/data/dummy.cpp $(DISTDIR)/
-	$(COPY_FILE) --parents Receiver/ReceiverUDP.h ScheduleSaver/DatabaseNoradScheduleSaver.h ScheduleSaver/FileNoradScheduleSaver.h ScheduleSaver/INoradScheduleSaver.h NoradProcessor.h FileSender/IFileSenderPLC.h FileSender/SftpFileSender.h TleProcessor.h Utils/UtilResponseParser.h Utils/Utility.h $(DISTDIR)/
-	$(COPY_FILE) --parents Receiver/ReceiverUDP.cpp ScheduleSaver/DatabaseNoradScheduleSaver.cpp ScheduleSaver/FileNoradScheduleSaver.cpp NoradProcessor.cpp FileSender/SftpFileSender.cpp TleProcessor.cpp Utils/UtilResponseParser.cpp Utils/Utility.cpp main.cpp $(DISTDIR)/
+	$(COPY_FILE) --parents FileSender/UdpFileSender.h Receiver/ReceiverUDP.h ScheduleSaver/DatabaseNoradScheduleSaver.h ScheduleSaver/FileNoradScheduleSaver.h ScheduleSaver/INoradScheduleSaver.h NoradProcessor.h FileSender/IFileSenderPLC.h FileSender/SftpFileSender.h TleProcessor.h Utils/UtilResponseParser.h Utils/Utility.h $(DISTDIR)/
+	$(COPY_FILE) --parents FileSender/UdpFileSender.cpp Receiver/ReceiverUDP.cpp ScheduleSaver/DatabaseNoradScheduleSaver.cpp ScheduleSaver/FileNoradScheduleSaver.cpp NoradProcessor.cpp FileSender/SftpFileSender.cpp TleProcessor.cpp Utils/UtilResponseParser.cpp Utils/Utility.cpp main.cpp $(DISTDIR)/
 
 
 clean: compiler_clean 
@@ -449,6 +453,10 @@ compiler_lex_clean:
 compiler_clean: compiler_moc_predefs_clean compiler_moc_header_clean 
 
 ####### Compile
+
+UdpFileSender.o: FileSender/UdpFileSender.cpp FileSender/UdpFileSender.h \
+		FileSender/IFileSenderPLC.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o UdpFileSender.o FileSender/UdpFileSender.cpp
 
 ReceiverUDP.o: Receiver/ReceiverUDP.cpp Receiver/ReceiverUDP.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o ReceiverUDP.o Receiver/ReceiverUDP.cpp
@@ -552,7 +560,7 @@ main.o: main.cpp TleProcessor.h \
 		ScheduleSaver/FileNoradScheduleSaver.h \
 		Utils/Utility.h \
 		Receiver/ReceiverUDP.h \
-		FileSender/SftpFileSender.h \
+		FileSender/UdpFileSender.h \
 		FileSender/IFileSenderPLC.h \
 		Utils/UtilResponseParser.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o main.cpp

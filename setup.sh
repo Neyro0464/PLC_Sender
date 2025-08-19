@@ -52,14 +52,3 @@ else
     echo -e "\n\033[31mОшибка компиляции!\033[0m" >&2
     exit 1
 fi
-
-# Копирование дополнительных файлов (для работы программы)
-echo "Копирование дополнительных файлов..."
-for file in TLE.txt settings.ini libsgp4s.so; do
-    if [ -f "$file" ] || [ -f "$PWD/LIBS/Bin/$file" ]; then
-        cp "$file" "$PWD/LIBS/Bin/$file" "$PWD/" 2>/dev/null
-        echo "$file скопирован в $PWD/"
-    else
-        echo "Предупреждение: $file не найден"
-    fi
-done

@@ -8,7 +8,7 @@
 #include "ScheduleSaver/FileNoradScheduleSaver.h"
 #include "Utils/Utility.h"
 #include "Receiver/ReceiverUDP.h"
-#include "FileSender/SftpFileSender.h"
+#include "FileSender/UdpFileSender.h"
 #include "Utils/UtilResponseParser.h"
 
 int main(int argc, char *argv[]) {
@@ -75,11 +75,16 @@ int main(int argc, char *argv[]) {
 
         // Sending formed file to PLC by SFTP
         settings.beginGroup("SshConnection");
-        std::unique_ptr<IFileSenderPLC> sender = std::make_unique<SftpFileSender>(settings.value("host").toString(), settings.value("port").toUInt(),
-                                                                                  settings.value("login").toString(), settings.value("password").toString(),
-                                                                                  resultFilePath, resultFilePath);
+        // std::unique_ptr<IFileSenderPLC> sender = std::make_unique<SftpFileSender>(settings.value("host").toString(), settings.value("port").toUInt(),
+        //                                                                           settings.value("login").toString(), settings.value("password").toString(),
+        //                                                                           resultFilePath, resultFilePath);
+        std::unique_ptr<IFileSenderPLC> sender = std::make_unique<UdpFileSender>(resultFilePath, settings.value("host").toString(), settings.value("port").toUInt());
         settings.endGroup();
-        sender->send();
+        if (sender->send()) {
+            qDebug() << "File sent successfully";
+        } else {
+            qWarning() << "Failed to send file";
+        }
 
         // Adding UDP receiver
         ReceiverUDP receiver{};
