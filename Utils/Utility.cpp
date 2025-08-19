@@ -4,10 +4,80 @@
 #include <QTextStream>
 #include <QDateTime>
 #include <QDebug>
+#include <QDataStream>
 
-int32_t Utility::CalcChecksum(const int32_t a, const int32_t b, const int32_t c){
-    return a ^ b ^ c;
+
+uint32_t Utility::CalcChecksum(const int32_t a, const int32_t b, const int32_t c){
+    return static_cast<uint32_t>(a) ^ static_cast<uint32_t>(b) ^ static_cast<uint32_t>(c);
 }
+
+uint32_t Utility::CalcChecksum(const int64_t a, const float b, const float c){
+    uint32_t res = 0;
+    uint64_t ua = static_cast<uint64_t>(a);
+    res ^= static_cast<uint32_t>(ua);
+    res ^= static_cast<uint32_t>(ua >> 32);
+    uint32_t bb;
+    std::memcpy(&bb, &b, sizeof(float));
+    res ^= bb;
+    uint32_t cc;
+    std::memcpy(&cc, &c, sizeof(float));
+    res ^= cc;
+    return res;
+}
+
+bool Utility::ConvertToBinary(const QString& inputPath, const QString& outputPath)
+{
+    QFile inputFile(inputPath);
+    if (!inputFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "Failed to open input file:" << inputPath;
+        return false;
+    }
+
+    QFile outputFile(outputPath);
+    if (!outputFile.open(QIODevice::WriteOnly)) {
+        qWarning() << "Failed to create output file:" << outputPath;
+        return false;
+    }
+
+    QDataStream out(&outputFile);
+    out.setVersion(QDataStream::Qt_5_15);
+    out.setByteOrder(QDataStream::LittleEndian);
+
+    QTextStream in(&inputFile);
+    int pointsCount = 0;
+    const QDateTime baseDate = QDateTime::fromString("1970-01-01", "yyyy-MM-dd");
+
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+        if (line.isEmpty()) continue;
+
+        QStringList parts = line.split(';', Qt::SkipEmptyParts);
+        if (parts.size() < 3) continue;
+
+        // Parse timestamp
+        QDateTime dt = QDateTime::fromString(parts[0].trimmed(), "yyyy-MM-dd HH:mm:ss");
+        if (!dt.isValid()) continue;
+
+        // Parse coordinates
+        bool latOk, lonOk;
+        double lat = parts[1].trimmed().toDouble(&latOk);
+        double lon = parts[2].trimmed().toDouble(&lonOk);
+        if (!latOk || !lonOk) continue;
+
+        // Write compact binary structure
+        BinaryPoint point {
+            .latitude = lat,
+            .longitude = lon,
+            .timestamp = dt.toSecsSinceEpoch()
+        };
+        out.writeRawData(reinterpret_cast<const char*>(&point), sizeof(BinaryPoint));
+        pointsCount++;
+    }
+
+    qInfo() << "Converted" << pointsCount << "points to binary format";
+    return pointsCount > 0;
+}
+
 
 void Utility::CreateSettingsFile(const QString& settingsFilePath){
     QSettings settings(settingsFilePath, QSettings::IniFormat);

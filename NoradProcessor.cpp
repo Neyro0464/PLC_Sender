@@ -32,7 +32,7 @@ CNoradProcessor::NORAD_ERROR CNoradProcessor::genSchedule(const uint32_t &satell
         // onDate = onDate.AddMicroseconds(delayMks);
         libsgp4::DateTime endDate = onDate.AddHours(NORAD_LIMIT_HOURS);
 
-        int stepMks = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::microseconds(posCalcDelayMkSec)).count();
+        int stepMks = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::minutes(posCalcDelayMkSec)).count();
 
         while(1) {
 

@@ -18,7 +18,7 @@ bool FileNoradScheduleSaver::save(const std::vector<NORAD_SCHEDULE>& vecNoradSch
     uint32_t checksum{};
     checksum ^= Utility::CalcChecksum(reserved1, reserved2, m_cmd);
     for (const auto& schedule : vecNoradSchedule) {
-        checksum ^= Utility::CalcChecksum(schedule.onDate.Ticks(), schedule.azm*1000, schedule.elv*1000);
+        checksum ^= Utility::CalcChecksum(schedule.onDate.Ticks(), schedule.azm, schedule.elv);
     }
     resultLine = date + ';' + QString::number(vecNoradSchedule.size()) + ';' + QString::number(checksum) + ';';
     FullfilLine(resultLine);

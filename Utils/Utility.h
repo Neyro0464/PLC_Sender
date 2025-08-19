@@ -13,13 +13,24 @@ public:
     Utility(Utility&&) noexcept;
     Utility &operator=(const Utility&&) noexcept;
 
-    static int32_t CalcChecksum(const int32_t a, const int32_t b, const int32_t c);
+    static uint32_t CalcChecksum(const int32_t a, const int32_t b, const int32_t c);
+    static uint32_t CalcChecksum(const int64_t a, const float b, const float c);
+    static bool ConvertToBinary(const QString &inputPath, const QString& outputPath);
     static void CreateSettingsFile(const QString& settingsFilePath);
     static void СustomMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg);
     // Создает файл если его нет, если есть отчищает
     static void СlearLogFile(const QString &fileName = "app.log");
     // Отчищает сообщения в лог файлы определенной давности (дней)
     static void ClearOldLogs(const QString &fileName, int days);
+
+private:
+#pragma pack(push, 1)
+    struct BinaryPoint {
+        double latitude;
+        double longitude;
+        qint64 timestamp;
+    };
+#pragma pack(pop)
 
 };
 

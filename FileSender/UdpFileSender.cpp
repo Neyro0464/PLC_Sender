@@ -42,7 +42,11 @@ bool UdpFileSender::send()
     file.close();
 
     if (success) {
-        qDebug() << "File sent successfully in" << sequence << "chunks";
+        QHostAddress localAddress = udpSocket.localAddress();
+        quint16 localPort = udpSocket.localPort();
+
+        qDebug() << "Пакет отправлен с адреса:" << localAddress.toString()
+                 << "и порта:" << localPort;
     }
 
     return success;

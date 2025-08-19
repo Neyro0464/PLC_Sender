@@ -72,13 +72,14 @@ int main(int argc, char *argv[]) {
         // Start calculations
         tleProcessor.loadTleFile(tleFilePath.toStdString());
         tleProcessor.processTleData(numKA, dt_mks);
+        Utility::ConvertToBinary(resultFilePath, "NoradSchedule.bin");
 
         // Sending formed file to PLC by SFTP
         settings.beginGroup("SshConnection");
         // std::unique_ptr<IFileSenderPLC> sender = std::make_unique<SftpFileSender>(settings.value("host").toString(), settings.value("port").toUInt(),
         //                                                                           settings.value("login").toString(), settings.value("password").toString(),
         //                                                                           resultFilePath, resultFilePath);
-        std::unique_ptr<IFileSenderPLC> sender = std::make_unique<UdpFileSender>(resultFilePath, settings.value("host").toString(), settings.value("port").toUInt());
+        std::unique_ptr<IFileSenderPLC> sender = std::make_unique<UdpFileSender>("NoradSchedule.bin", settings.value("host").toString(), settings.value("port").toUInt());
         settings.endGroup();
         if (sender->send()) {
             qDebug() << "File sent successfully";
