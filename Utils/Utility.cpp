@@ -5,7 +5,7 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QDataStream>
-
+#include <cstring>
 
 uint32_t Utility::CalcChecksum(const int32_t a, const int32_t b, const int32_t c){
     return static_cast<uint32_t>(a) ^ static_cast<uint32_t>(b) ^ static_cast<uint32_t>(c);
