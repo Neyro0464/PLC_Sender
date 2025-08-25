@@ -12,16 +12,32 @@ class UdpSender : public QObject
     Q_OBJECT
 
 private:
-    struct DataRow {
-        uint32_t col0;  // DT или время
-        float col1;     // Азимут или другие данные
-        float col2;     // Угол места или другие данные
+#pragma pack(push, 1)  // Важно для правильного выравнивания
+    struct HeaderRow {
+        uint32_t col0;
+        uint32_t col1;
+        uint32_t col2;
     };
+
+    struct DataRow {
+        uint32_t time;
+        float azimuth;
+        float elevation;
+    };
+#pragma pack(pop)
 
     QUdpSocket* m_udpSocket;
     QHostAddress m_targetAddress;
     quint16 m_targetPort;
-    QVector<DataRow> m_data;
+
+    // Отдельные массивы для заголовка и данных
+    HeaderRow m_header[2];  // Две строки заголовка
+    QVector<DataRow> m_data;// Данные точек
+
+    // Приватные методы для работы с endianness
+    static inline uint32_t toLittleEndian32(uint32_t value);
+
+    static inline float toLittleEndianFloat(float value);
 
     void calculateCheckSum();
     QByteArray prepareDataForSend() const;
@@ -34,7 +50,9 @@ public:
     ~UdpSender();
 
     bool sendData();
-    size_t getDataSize() const { return m_data.size() * sizeof(DataRow); }
+    size_t getDataSize() const {
+        return (2 * sizeof(HeaderRow) + m_data.size() * sizeof(DataRow));
+    }
     void debugPrintData() const;
 
 signals:

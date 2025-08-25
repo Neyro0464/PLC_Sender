@@ -3,6 +3,7 @@
 #include <QFile>
 #include <QTextStream>
 
+// UdpSender.cpp
 UdpSender::UdpSender(std::vector<NORAD_SCHEDULE>& data,
                      uint32_t satelliteNumber,
                      const QHostAddress& targetAddress,
@@ -19,33 +20,28 @@ UdpSender::UdpSender(std::vector<NORAD_SCHEDULE>& data,
     }
 
     try {
-        // Размер = данные + 2 строки заголовка
-        m_data.resize(data.size() + 2);
-
         // Текущее время для заголовков
         uint32_t currentTime = static_cast<uint32_t>(libsgp4::DateTime::Now().Ticks());
 
         // Первая строка заголовка [0]
-        m_data[0].col0 = currentTime;           // Время сервера
-        m_data[0].col1 = data.size();          // Количество точек
-        m_data[0].col2 = 0;                    // Место под контрольную сумму
+        m_header[0].col0 = currentTime;
+        m_header[0].col1 = static_cast<uint32_t>(data.size());
+        m_header[0].col2 = 0;
 
         // Вторая строка заголовка [1]
-        m_data[1].col0 = currentTime;          // Время запроса
-        m_data[1].col1 = satelliteNumber;      // Номер спутника
-        m_data[1].col2 = 0;                    // Код ошибки
+        m_header[1].col0 = currentTime;
+        m_header[1].col1 = satelliteNumber;
+        m_header[1].col2 = 0;
 
         // Заполняем данные точек
+        m_data.resize(data.size());
         for (size_t i = 0; i < data.size(); i++) {
-            m_data[i + 2].col0 = static_cast<uint32_t>(data[i].onDate.Ticks());
-            m_data[i + 2].col1 = data[i].azm;
-            m_data[i + 2].col2 = data[i].elv;
+            m_data[i].time = static_cast<uint32_t>(data[i].onDate.Ticks());
+            m_data[i].azimuth = data[i].azm;
+            m_data[i].elevation = data[i].elv;
         }
 
         calculateCheckSum();
-        qDebug() << "[UdpSender]: Data prepared successfully";
-        qDebug() << "[UdpSender]: Total points:" << data.size();
-        qDebug() << "[UdpSender]: Total size:" << getDataSize() << "bytes";
 
     } catch (const std::exception& e) {
         qCritical() << "[UdpSender]: Exception in constructor:" << e.what();
@@ -55,32 +51,49 @@ UdpSender::UdpSender(std::vector<NORAD_SCHEDULE>& data,
 
 void UdpSender::calculateCheckSum()
 {
-    if (m_data.size() < 2) return;
-
     // XOR второй строки заголовка
-    uint32_t checksum = m_data[1].col0;  // Время запроса
-    checksum ^= static_cast<uint32_t>(m_data[1].col1);  // Номер спутника
-    checksum ^= static_cast<uint32_t>(m_data[1].col2);  // Код ошибки
-
-    // Записываем контрольную сумму в первую строку
-    m_data[0].col2 = checksum;
-
-    qDebug() << "[UdpSender]: Checksum calculated:" << checksum;
+    m_header[0].col2 = m_header[1].col0 ^ m_header[1].col1 ^ m_header[1].col2;
 }
 
 QByteArray UdpSender::prepareDataForSend() const
 {
-    if (m_data.empty()) {
-        qWarning() << "[UdpSender]: No data to prepare";
-        return QByteArray();
+    const size_t totalSize = 2 * sizeof(HeaderRow) + m_data.size() * sizeof(DataRow);
+    QByteArray data(totalSize, 0);
+    uint8_t* ptr = reinterpret_cast<uint8_t*>(data.data());
+
+    // Записываем заголовок
+    for (int i = 0; i < 2; i++) {
+        uint32_t* dest = reinterpret_cast<uint32_t*>(ptr + i * sizeof(HeaderRow));
+
+        // Преобразуем каждое значение в little-endian
+        dest[0] = toLittleEndian32(m_header[i].col0);
+        dest[1] = toLittleEndian32(m_header[i].col1);
+        dest[2] = toLittleEndian32(m_header[i].col2);
     }
 
-    const size_t totalSize = m_data.size() * sizeof(DataRow);
-    QByteArray data(totalSize, 0);
+    // Записываем данные точек
+    uint8_t* dataPtr = ptr + 2 * sizeof(HeaderRow);
+    for (const auto& point : m_data) {
+        uint32_t* timePtr = reinterpret_cast<uint32_t*>(dataPtr);
+        float* valuesPtr = reinterpret_cast<float*>(dataPtr + sizeof(uint32_t));
 
-    memcpy(data.data(), m_data.constData(), totalSize);
+        *timePtr = toLittleEndian32(point.time);
 
-    qDebug() << "[UdpSender]: Prepared data size:" << totalSize << "bytes";
+        // Преобразуем float значения
+        union {
+            float f;
+            uint32_t i;
+        } az, el;
+
+        az.f = point.azimuth;
+        el.f = point.elevation;
+
+        *reinterpret_cast<uint32_t*>(&valuesPtr[0]) = toLittleEndian32(az.i);
+        *reinterpret_cast<uint32_t*>(&valuesPtr[1]) = toLittleEndian32(el.i);
+
+        dataPtr += sizeof(DataRow);
+    }
+
     return data;
 }
 
@@ -93,36 +106,49 @@ void UdpSender::debugPrintData() const
     }
 
     QTextStream out(&file);
-    out.setRealNumberPrecision(3);
-    out.setRealNumberNotation(QTextStream::FixedNotation);
 
-    // Специальная обработка для заголовков (первые две строки)
-    // Первая строка заголовка - все значения целые
-    out << QString("[0],[0] %1 [0],[1] %2 [0],[2] %3\n")
-               .arg(m_data[0].col0)          // uint32_t - время
-               .arg(static_cast<uint32_t>(m_data[0].col1))  // количество точек
-               .arg(static_cast<uint32_t>(m_data[0].col2)); // контрольная сумма
-
-    // Вторая строка заголовка - все значения целые
-    out << QString("[1],[0] %1 [1],[1] %2 [1],[2] %3\n")
-               .arg(m_data[1].col0)          // uint32_t - время
-               .arg(static_cast<uint32_t>(m_data[1].col1))  // номер спутника
-               .arg(static_cast<uint32_t>(m_data[1].col2)); // код ошибки
-
-    // Пустая строка для разделения
-    out << "\n";
-
-    // Данные точек - время целое, азимут и угол места - float
-    for (int i = 2; i < m_data.size(); i++) {
+    // Заголовок
+    for (int i = 0; i < 2; i++) {
         out << QString("[%1],[0] %2 [%1],[1] %3 [%1],[2] %4\n")
                    .arg(i)
-                   .arg(m_data[i].col0)      // uint32_t - время
-                   .arg(m_data[i].col1, 0, 'f', 3)  // float - азимут
-                   .arg(m_data[i].col2, 0, 'f', 3); // float - угол места
+                   .arg(m_header[i].col0)
+                   .arg(m_header[i].col1)
+                   .arg(m_header[i].col2);
+    }
+
+    out << "\n";
+
+    // Данные точек
+    for (int i = 0; i < m_data.size(); i++) {
+        out << QString("[%1],[0] %2 [%1],[1] %3 [%1],[2] %4\n")
+                   .arg(i + 2)
+                   .arg(m_data[i].time)
+                   .arg(m_data[i].azimuth, 0, 'f', 3)
+                   .arg(m_data[i].elevation, 0, 'f', 3);
     }
 
     file.close();
-    qDebug() << "[UdpSender]: Debug data written to NoradSchedule.txt";
+}
+
+uint32_t UdpSender::toLittleEndian32(uint32_t value) {
+#if Q_BYTE_ORDER == Q_LITTLE_ENDIAN
+    return value;
+#else
+    return ((value & 0xFF000000) >> 24) |
+           ((value & 0x00FF0000) >> 8) |
+           ((value & 0x0000FF00) << 8) |
+           ((value & 0x000000FF) << 24);
+#endif
+}
+
+float UdpSender::toLittleEndianFloat(float value) {
+    union {
+        float f;
+        uint32_t i;
+    } u;
+    u.f = value;
+    u.i = toLittleEndian32(u.i);
+    return u.f;
 }
 
 bool UdpSender::sendData()
