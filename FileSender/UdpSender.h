@@ -14,28 +14,27 @@ class UdpSender : public QObject
 
 private:
     struct Point {
-        uint32_t dt;    // 4 байта - временная метка в тиках
-        float Az;       // 4 байта - азимут
-        float El;       // 4 байта - угол места
+        uint32_t Ti;    // DT (DateTime) как DWORD
+        float Az;       // REAL
+        float El;       // REAL
     };
 
     struct Atribute {
-        uint32_t dt;    // 4 байта - временная метка
-        uint32_t d1;    // 4 байта - дополнительное поле 1
-        uint32_t d2;    // 4 байта - дополнительное поле 2
+        uint32_t Ti;    // DT как DWORD
+        uint32_t d1;    // DWORD
+        uint32_t d2;    // DWORD
     };
 
     struct Sum {
-        uint32_t dt;    // 4 байта - сумма временной метки
-        uint32_t Az;    // 4 байта - сумма азимута
-        uint32_t El;    // 4 байта - сумма угла места
+        uint32_t Ti;    // DWORD
+        uint32_t Az;    // DWORD
+        uint32_t El;    // DWORD
     };
 
     struct Mas {
-        Point point;    // 12 байт
-        Atribute atr;   // 12 байт
-        Sum sum;        // 12 байт
-        // Итого: 36 байт на одну структуру Mas
+        Point point;
+        Atribute atr;
+        Sum sum;
     };
 
 private:
@@ -48,6 +47,8 @@ private:
     void calculateCheckSum();
     QByteArray prepareDataForSend() const;
 
+    void convertFloatToDWORD(float value, uint32_t& result);
+
 public:
     UdpSender(std::vector<NORAD_SCHEDULE>& data,
               const QHostAddress& targetAddress = QHostAddress::LocalHost,
@@ -58,6 +59,7 @@ public:
     bool sendData();
     uint32_t getCheckSum() const { return m_checkSum; }
     size_t getDataSize() const { return m_result.size() * sizeof(Mas) + sizeof(uint32_t) * 2; }
+    void debugPrintData() const;
 
 signals:
     void dataSent(bool success, qint64 bytesSent);

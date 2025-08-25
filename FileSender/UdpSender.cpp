@@ -1,50 +1,45 @@
 #include "UdpSender.h"
 #include <QDebug>
 #include <QByteArray>
+#include <cstring> // для memcpy
 
+// Модифицируем конструктор
 UdpSender::UdpSender(std::vector<NORAD_SCHEDULE>& data,
                      const QHostAddress& targetAddress,
                      quint16 targetPort)
     : m_targetAddress(targetAddress), m_targetPort(targetPort)
 {
     m_udpSocket = new QUdpSocket(this);
-    qDebug() << "[UdpSender]: UDP socket created";
 
-    if(data.empty()){
+    if(data.empty()) {
         qCritical() << "[UdpSender][Constructor]: No data to copy";
         return;
     }
 
-
     try {
         m_result.resize(data.size());
 
-        for (int i = 0; i < int(data.size()); i++){
-            // Проверяем валидность данных
-            if (i < data.size()) {
-                // Преобразуем DateTime в тики (uint32_t)
-                m_result[i].point.dt = static_cast<uint32_t>(data[i].onDate.Ticks());
-                m_result[i].point.Az = static_cast<float>(data[i].azm);
-                m_result[i].point.El = static_cast<float>(data[i].elv);
+        for (size_t i = 0; i < data.size(); i++) {
+            // Время всегда первое в каждой структуре
+            uint32_t timestamp = static_cast<uint32_t>(data[i].onDate.Ticks());
 
-                // Инициализируем sum структуру
-                m_result[i].sum.dt = m_result[i].point.dt;
-                m_result[i].sum.Az = static_cast<uint32_t>(data[i].azm);
-                m_result[i].sum.El = static_cast<uint32_t>(data[i].elv);
+            // Point (сохраняем REAL как есть)
+            m_result[i].point.Ti = timestamp;
+            m_result[i].point.Az = data[i].azm;
+            m_result[i].point.El = data[i].elv;
 
-                // Заполняем атрибуты
-                if (!data.empty()) {
-                    m_result[i].atr.dt = static_cast<uint32_t>(data[0].onDate.Ticks());
-                } else {
-                    m_result[i].atr.dt = 0;
-                }
-                m_result[i].atr.d1 = 0;
-                m_result[i].atr.d2 = 0;
-            }
+            // Atribute
+            m_result[i].atr.Ti = timestamp;
+            m_result[i].atr.d1 = i;
+            m_result[i].atr.d2 = data.size();
+
+            // Sum (для расчёта контрольной суммы)
+            m_result[i].sum.Ti = timestamp;
+            m_result[i].sum.Az = static_cast<uint32_t>(data[i].azm * 1000);
+            m_result[i].sum.El = static_cast<uint32_t>(data[i].elv * 1000);
         }
 
         calculateCheckSum();
-        qDebug() << "[UdpSender]: Checksum calculated:" << m_checkSum;
 
     } catch (const std::exception& e) {
         qCritical() << "[UdpSender]: Exception in constructor:" << e.what();
@@ -54,6 +49,7 @@ UdpSender::UdpSender(std::vector<NORAD_SCHEDULE>& data,
 
 UdpSender::~UdpSender()
 {
+    qDebug() << "[UdpSender]: Destructor called";
     if (m_udpSocket) {
         m_udpSocket->close();
         delete m_udpSocket;
@@ -66,53 +62,54 @@ void UdpSender::calculateCheckSum()
     m_checkSum = 0;
     if (m_result.empty()) return;
 
-    const uint8_t* dataPtr = reinterpret_cast<const uint8_t*>(m_result.constData());
-    size_t dataSize = m_result.size() * sizeof(Mas);
-
-    for (size_t i = 0; i < dataSize; ++i) {
-        m_checkSum += dataPtr[i];
+    // Используем XOR как в Codesys
+    for (const auto& item : m_result) {
+        // Только для структуры Sum
+        m_checkSum ^= item.sum.Ti ^ item.sum.Az ^ item.sum.El;
     }
 }
 
 QByteArray UdpSender::prepareDataForSend() const
 {
-    QByteArray data;
-
     if (m_result.empty()) {
         qWarning() << "[UdpSender]: No data to prepare";
-        return data;
+        return QByteArray();
     }
 
-    // Ручная подготовка данных в little-endian формате
-    data.resize(sizeof(uint32_t) * 2 + m_result.size() * sizeof(Mas));
+    const size_t headerSize = sizeof(uint32_t) * 2;
+    const size_t dataSize = m_result.size() * sizeof(Mas);
 
-    uint8_t* dataPtr = reinterpret_cast<uint8_t*>(data.data());
+    QByteArray data;
+    data.resize(headerSize + dataSize);
+    char* ptr = data.data();
 
-    // Записываем контрольную сумму (4 байта, little-endian)
-    uint32_t checksumLE = m_checkSum;
-    dataPtr[0] = (checksumLE >> 0) & 0xFF;
-    dataPtr[1] = (checksumLE >> 8) & 0xFF;
-    dataPtr[2] = (checksumLE >> 16) & 0xFF;
-    dataPtr[3] = (checksumLE >> 24) & 0xFF;
+    // Записываем заголовок
+    *reinterpret_cast<uint32_t*>(ptr) = m_checkSum;
+    *reinterpret_cast<uint32_t*>(ptr + sizeof(uint32_t)) = m_result.size();
 
-    // Записываем количество элементов (4 байта, little-endian)
-    uint32_t countLE = static_cast<uint32_t>(m_result.size());
-    dataPtr[4] = (countLE >> 0) & 0xFF;
-    dataPtr[5] = (countLE >> 8) & 0xFF;
-    dataPtr[6] = (countLE >> 16) & 0xFF;
-    dataPtr[7] = (countLE >> 24) & 0xFF;
+    // Копируем данные структур
+    memcpy(ptr + headerSize, m_result.constData(), dataSize);
 
-    // Копируем данные структур Mas
-    size_t offset = 8;
-    const uint8_t* masData = reinterpret_cast<const uint8_t*>(m_result.constData());
-    size_t masDataSize = m_result.size() * sizeof(Mas);
-
-    for (size_t i = 0; i < masDataSize; ++i) {
-        dataPtr[offset + i] = masData[i];
-    }
     return data;
 }
 
+void UdpSender::debugPrintData() const
+{
+    qDebug() << "=== UDP Sender Debug ===";
+    qDebug() << "Header:";
+    qDebug() << "- Checksum:" << m_checkSum;
+    qDebug() << "- Items count:" << m_result.size();
+
+    for (size_t i = 0; i < m_result.size(); i++) {
+        qDebug() << "Item" << i << ":";
+        qDebug() << "  Point: Ti =" << m_result[i].point.Ti
+                 << "Az =" << m_result[i].point.Az
+                 << "El =" << m_result[i].point.El;
+        qDebug() << "  Sum: Ti =" << m_result[i].sum.Ti
+                 << "Az =" << m_result[i].sum.Az
+                 << "El =" << m_result[i].sum.El;
+    }
+}
 bool UdpSender::sendData()
 {
 
@@ -121,6 +118,8 @@ bool UdpSender::sendData()
         emit errorOccurred("No data to send");
         return false;
     }
+
+    debugPrintData();
 
     QByteArray dataToSend = prepareDataForSend();
 
