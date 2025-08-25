@@ -8,8 +8,8 @@
 #include "ScheduleSaver/FileNoradScheduleSaver.h"
 #include "Utils/Utility.h"
 #include "Receiver/ReceiverUDP.h"
-#include "FileSender/UdpFileSender.h"
 #include "Utils/UtilResponseParser.h"
+#include "FileSender/UdpSender.h"
 
 int main(int argc, char *argv[]) {
 
@@ -20,7 +20,8 @@ int main(int argc, char *argv[]) {
 
     QString tleFilePath = "ServiceFiles/definiteTLE.txt";        // File with TLE info
     QString settingsFilePath = "ServiceFiles/settings.ini";      // File with settings
-    QString resultFilePath = "NoradSchedule.txt";   // File with results for one satellite
+    QString resultFilePath = "NoradSchedule.txt";               // File with results for one satellite
+    QString resultBinFile = "NoradSchedule.bin";                // File with results in binary format for sending
 
     // class for saving results in file
     std::unique_ptr<INoradScheduleSaver> saver = std::make_unique<FileNoradScheduleSaver>(resultFilePath.toStdString());
@@ -38,7 +39,7 @@ int main(int argc, char *argv[]) {
     saver->setCommand(settings.value("cmd").toInt());
     settings.endGroup();
 
-    // Group for log in on Space-Track.org
+    // Settings for log in Space-Track.org
     settings.beginGroup("TLEbySpaceTrack");
     QString login = settings.value("login").toString();
     QString pass = settings.value("pass").toString();
@@ -47,6 +48,7 @@ int main(int argc, char *argv[]) {
         qCritical() << "[Main]:[settings]: no login or pass!";
     }
 
+    // Settings for calculations
     settings.beginGroup("ObserverConfiguration");
     CTleProcessor tleProcessor(std::move(saver), settings.value("Latitude").toDouble(), settings.value("Longitude").toDouble(), settings.value("Altitude").toDouble());
     uint numKA = settings.value("numKA").toUInt();
@@ -72,24 +74,48 @@ int main(int argc, char *argv[]) {
         // Start calculations
         tleProcessor.loadTleFile(tleFilePath.toStdString());
         tleProcessor.processTleData(numKA, dt_mks);
-        Utility::ConvertToBinary(resultFilePath, "NoradSchedule.bin");
+        // Utility::ConvertToBinary(resultFilePath, "NoradSchedule.bin");
+        std::vector<NORAD_SCHEDULE> data = tleProcessor.getProcessedData();
 
-        // Sending formed file to PLC by SFTP
-        settings.beginGroup("SshConnection");
-        // std::unique_ptr<IFileSenderPLC> sender = std::make_unique<SftpFileSender>(settings.value("host").toString(), settings.value("port").toUInt(),
-        //                                                                           settings.value("login").toString(), settings.value("password").toString(),
-        //                                                                           resultFilePath, resultFilePath);
-        std::unique_ptr<IFileSenderPLC> sender = std::make_unique<UdpFileSender>("NoradSchedule.bin", settings.value("host").toString(), settings.value("port").toUInt());
+        settings.beginGroup("UdpConnection");
+        QString udpHost = settings.value("host").toString();
+        quint16 udpPort = settings.value("port").toUInt();
         settings.endGroup();
-        if (sender->send()) {
-            qDebug() << "File sent successfully";
-        } else {
-            qWarning() << "Failed to send file";
+
+        UdpSender dataForSend(data, QHostAddress(udpHost), udpPort);
+        // В функции main после создания UdpSender:
+        qDebug() << "[Main]: UdpSender created successfully";
+
+        // Перед отправкой данных:
+        qDebug() << "[Main]: About to send UDP data";
+
+        // Оберните отправку в try-catch:
+        try {
+            if (dataForSend.sendData()) {
+                qDebug() << "[Main]: Data sent successfully via UDP";
+                qDebug() << "[Main]: Total data size:" << dataForSend.getDataSize() << "bytes";
+            } else {
+                qWarning() << "[Main]: Failed to send data via UDP";
+            }
+        } catch (const std::exception& e) {
+            qCritical() << "[Main]: Exception during UDP send:" << e.what();
+            QCoreApplication::exit(1);
         }
+        // // Sending formed file to PLC by SFTP
+        // settings.beginGroup("SshConnection");
+        // // std::unique_ptr<IFileSenderPLC> sender = std::make_unique<SftpFileSender>(settings.value("host").toString(), settings.value("port").toUInt(),
+        // //                                                                           settings.value("login").toString(), settings.value("password").toString(),
+        // //                                                                           resultFilePath, resultFilePath);
+        // std::unique_ptr<IFileSenderPLC> sender = std::make_unique<UdpFileSender>("NoradSchedule.bin", settings.value("host").toString(), settings.value("port").toUInt());
+        // settings.endGroup();
+        // if (sender->send()) {
+        //     qDebug() << "File sent successfully";
+        // } else {
+        //     qWarning() << "Failed to send file";
+        // }
 
         // Adding UDP receiver
         ReceiverUDP receiver{};
-
 
         // Start listening on default port 3545
         if (!receiver.startListening()) {

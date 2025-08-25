@@ -11,6 +11,7 @@ LIBS += -lssh
 
 SOURCES += \
         FileSender/UdpFileSender.cpp \
+        FileSender/UdpSender.cpp \
         Receiver/ReceiverUDP.cpp \
         ScheduleSaver/DatabaseNoradScheduleSaver.cpp \
         ScheduleSaver/FileNoradScheduleSaver.cpp \
@@ -33,6 +34,7 @@ DISTFILES += \
 
 HEADERS += \
     FileSender/UdpFileSender.h \
+    FileSender/UdpSender.h \
     Receiver/ReceiverUDP.h \
     ScheduleSaver/DatabaseNoradScheduleSaver.h \
     ScheduleSaver/FileNoradScheduleSaver.h \

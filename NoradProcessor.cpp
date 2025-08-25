@@ -59,6 +59,7 @@ CNoradProcessor::NORAD_ERROR CNoradProcessor::genSchedule(const uint32_t &satell
         return NORAD_SAVE_FAILED;
     }
 
+
     return NORAD_OK;
 }
 

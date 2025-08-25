@@ -17,41 +17,40 @@ CTleProcessor::CTleProcessor(std::unique_ptr<INoradScheduleSaver> saver, double 
 }
 
 
-bool CTleProcessor::downloadTleFromUrl(const uint32_t satelliteNumber, const std::string& savePath){
-    QNetworkAccessManager *manager = new QNetworkAccessManager(this);
+// bool CTleProcessor::downloadTleFromUrl(const uint32_t satelliteNumber, const std::string& savePath){
+//     QNetworkAccessManager *manager = new QNetworkAccessManager(this);
 
-    QString urlString = QString("https://celestrak.org/NORAD/elements/gp.php?CATNR=%1&FORMAT=TLE").arg(QString::number(satelliteNumber));
-    QUrl url(urlString);
-    QNetworkRequest request(url);
-    request.setTransferTimeout(10000); // Таймаут 10 секунд
+//     QString urlString = QString("https://celestrak.org/NORAD/elements/gp.php?CATNR=%1&FORMAT=TLE").arg(QString::number(satelliteNumber));
+//     QUrl url(urlString);
+//     QNetworkRequest request(url);
+//     request.setTransferTimeout(10000); // Таймаут 10 секунд
 
-    qDebug() << "Downloading TLE data for " << satelliteNumber;
+//     qDebug() << "Downloading TLE data for " << satelliteNumber;
 
-    QNetworkReply *reply = manager->get(request);
-    connect(reply, &QNetworkReply::finished, this, [=]() {
-        bool success = false;
-        if (reply->error() == QNetworkReply::NoError) {
-            QString outputFile = QString::fromStdString(savePath);
-            QFile file(outputFile);
-            if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-                file.write(reply->readAll());
-                file.close();
-                qDebug() << "Data successfully saved to" << outputFile;
-                success = true;
-            } else {
-                qDebug() << "Error: Unable to open file" << outputFile << "for writing";
-            }
-        } else {
-            qDebug() << "Error downloading data:" << reply->errorString();
-        }
-        reply->deleteLater();
-        manager->deleteLater();
+//     QNetworkReply *reply = manager->get(request);
+//     connect(reply, &QNetworkReply::finished, this, [=]() {
+//         bool success = false;
+//         if (reply->error() == QNetworkReply::NoError) {
+//             QString outputFile = QString::fromStdString(savePath);
+//             QFile file(outputFile);
+//             if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+//                 file.write(reply->readAll());
+//                 file.close();
+//                 qDebug() << "Data successfully saved to" << outputFile;
+//                 success = true;
+//             } else {
+//                 qDebug() << "Error: Unable to open file" << outputFile << "for writing";
+//             }
+//         } else {
+//             qDebug() << "Error downloading data:" << reply->errorString();
+//         }
+//         reply->deleteLater();
+//         manager->deleteLater();
 
-        emit tleDownloaded(success);
-    });
-    return true;
-}
-
+//         emit tleDownloaded(success);
+//     });
+//     return true;
+// }
 bool CTleProcessor::downloadTleFromUrl(const uint32_t satelliteNumber, const std::string& savePath, const std::string& username, const std::string& password) {
     QNetworkAccessManager *manager = new QNetworkAccessManager(this);
 
@@ -83,38 +82,38 @@ bool CTleProcessor::downloadTleFromUrl(const uint32_t satelliteNumber, const std
 
             // When we logged in, Send query to take tle data
             connect(queryReply, &QNetworkReply::finished, this, [=]() mutable{
-                    int queryHttpStatus = queryReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-                    qDebug() << "[CTleProcessor::downloadTleFromUrl]: Query HTTP status:" << queryHttpStatus << " | Error code:" << queryReply->error();
+                int queryHttpStatus = queryReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+                qDebug() << "[CTleProcessor::downloadTleFromUrl]: Query HTTP status:" << queryHttpStatus << " | Error code:" << queryReply->error();
 
-                    if (queryReply->error() == QNetworkReply::NoError && queryHttpStatus == 200) {
-                        QString outputFile = QString::fromStdString(savePath);
-                        QFile file(outputFile);
+                if (queryReply->error() == QNetworkReply::NoError && queryHttpStatus == 200) {
+                    QString outputFile = QString::fromStdString(savePath);
+                    QFile file(outputFile);
 
-                        // If tle data received successfuly, then save downloaded data in file
-                        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-                            QByteArray data = queryReply->readAll();
-                            file.write(data);
-                            file.close();
-                            qInfo() << "[CTleProcessor::downloadTleFromUrl]: Data successfully saved to" << outputFile << " | Data size:" << data.size();  // Added: Confirm data was written
-                            success = true;
-                        } else {
-                            qCritical() << "[CTleProcessor::downloadTleFromUrl]: Error: Unable to open file" << outputFile << "for writing";
-                        }
-                    } else{
-                        qCritical() << "[CTleProcessor::downloadTleFromUrl]: Error downloading TLE data:" << queryReply->errorString();
+                    // If tle data received successfuly, then save downloaded data in file
+                    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                        QByteArray data = queryReply->readAll();
+                        file.write(data);
+                        file.close();
+                        qInfo() << "[CTleProcessor::downloadTleFromUrl]: Data successfully saved to" << outputFile << " | Data size:" << data.size();  // Added: Confirm data was written
+                        success = true;
+                    } else {
+                        qCritical() << "[CTleProcessor::downloadTleFromUrl]: Error: Unable to open file" << outputFile << "for writing";
                     }
-                    queryReply->deleteLater();
-                    QUrl logoutUrl("https://www.space-track.org/ajaxauth/logout");
-                    QNetworkRequest logoutRequest(logoutUrl);
-                    QNetworkReply *logoutReply = manager->get(logoutRequest);
-                    connect(logoutReply, &QNetworkReply::finished, this, [=]() {
-                        qDebug() << "Logout completed. HTTP status:" << logoutReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()
-                                 << " | Error:" << logoutReply->error();
-                        logoutReply->deleteLater();
-                    });
-                    manager->deleteLater();
-                    emit tleDownloaded(success);
+                } else{
+                    qCritical() << "[CTleProcessor::downloadTleFromUrl]: Error downloading TLE data:" << queryReply->errorString();
+                }
+                queryReply->deleteLater();
+                QUrl logoutUrl("https://www.space-track.org/ajaxauth/logout");
+                QNetworkRequest logoutRequest(logoutUrl);
+                QNetworkReply *logoutReply = manager->get(logoutRequest);
+                connect(logoutReply, &QNetworkReply::finished, this, [=]() {
+                    qDebug() << "Logout completed. HTTP status:" << logoutReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()
+                             << " | Error:" << logoutReply->error();
+                    logoutReply->deleteLater();
                 });
+                manager->deleteLater();
+                emit tleDownloaded(success);
+            });
         } else {
             qCritical() << "[CTleProcessor::downloadTleFromUrl]: Login failed:" << loginReply->errorString();
             loginReply->deleteLater();

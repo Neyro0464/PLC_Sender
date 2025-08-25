@@ -8,30 +8,9 @@ bool FileNoradScheduleSaver::save(const std::vector<NORAD_SCHEDULE>& vecNoradSch
     if (!outFile.is_open()) {
         return false;
     }
-    QString date = TrimUTC(libsgp4::DateTime::Now());
-    QString resultLine{};
 
-    //Reserved values:
-    int reserved1 = 0;
-    int reserved2 = 0;
-
-    uint32_t checksum{};
-    checksum ^= Utility::CalcChecksum(reserved1, reserved2, m_cmd);
     for (const auto& schedule : vecNoradSchedule) {
-        checksum ^= Utility::CalcChecksum(schedule.onDate.Ticks(), schedule.azm, schedule.elv);
-    }
-    resultLine = date + ';' + QString::number(vecNoradSchedule.size()) + ';' + QString::number(checksum) + ';';
-    FullfilLine(resultLine);
-    outFile << resultLine.toStdString();
-    resultLine = QString::number(reserved1) + ';' + QString::number(reserved2) + ';' + QString::number(m_cmd) + ';';
-    FullfilLine(resultLine);
-    outFile << resultLine.toStdString();
-
-    for (const auto& schedule : vecNoradSchedule) {// 37 symbols on the line
-        date = TrimUTC(schedule.onDate);
-        resultLine = date + ';' + QString::number(schedule.azm) + ';' + QString::number(schedule.elv) + ';';
-        FullfilLine(resultLine);
-        outFile << resultLine.toStdString();
+        outFile << schedule.onDate << ';' << schedule.azm << ';' << schedule.elv << ";\n";
     }
     outFile.close();
     return true;
@@ -127,8 +106,9 @@ QString FileNoradScheduleSaver::TrimUTC(const libsgp4::DateTime onDate){
     return res;
 }
 
-void FileNoradScheduleSaver::FullfilLine(QString &line){
-    while (line.size() < 37) {
+
+void FileNoradScheduleSaver::FullfilLine(QString &line, int size){
+    while (line.size() < size) {
         line.append(' ');
     }
     line.append("\n");

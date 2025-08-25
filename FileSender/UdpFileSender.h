@@ -9,15 +9,14 @@
 class UdpFileSender : public IFileSenderPLC
 {
 public:
-    UdpFileSender(const QString& filePath, const QString& address, quint16 port, quint32 chunkSize = 32768);
+    UdpFileSender(const QString& filePath, const QString& address, quint16 port);
     ~UdpFileSender() override;
 
     bool send() override;
     void setDestination(const QString& destination) override;
-    void setChunkSize(quint32 size);
 
 private:
-    bool sendChunk(const QByteArray& chunk, quint32 sequence);
+    bool sendFile(const QByteArray& fileData);
 
 private:
     QString filePath;
