@@ -96,13 +96,29 @@ void UdpSender::debugPrintData() const
     out.setRealNumberPrecision(3);
     out.setRealNumberNotation(QTextStream::FixedNotation);
 
-    // Записываем строки данных
-    for (int i = 0; i < m_data.size(); i++) {
+    // Специальная обработка для заголовков (первые две строки)
+    // Первая строка заголовка - все значения целые
+    out << QString("[0],[0] %1 [0],[1] %2 [0],[2] %3\n")
+               .arg(m_data[0].col0)          // uint32_t - время
+               .arg(static_cast<uint32_t>(m_data[0].col1))  // количество точек
+               .arg(static_cast<uint32_t>(m_data[0].col2)); // контрольная сумма
+
+    // Вторая строка заголовка - все значения целые
+    out << QString("[1],[0] %1 [1],[1] %2 [1],[2] %3\n")
+               .arg(m_data[1].col0)          // uint32_t - время
+               .arg(static_cast<uint32_t>(m_data[1].col1))  // номер спутника
+               .arg(static_cast<uint32_t>(m_data[1].col2)); // код ошибки
+
+    // Пустая строка для разделения
+    out << "\n";
+
+    // Данные точек - время целое, азимут и угол места - float
+    for (int i = 2; i < m_data.size(); i++) {
         out << QString("[%1],[0] %2 [%1],[1] %3 [%1],[2] %4\n")
                    .arg(i)
-                   .arg(m_data[i].col0)
-                   .arg(m_data[i].col1)
-                   .arg(m_data[i].col2);
+                   .arg(m_data[i].col0)      // uint32_t - время
+                   .arg(m_data[i].col1, 0, 'f', 3)  // float - азимут
+                   .arg(m_data[i].col2, 0, 'f', 3); // float - угол места
     }
 
     file.close();
