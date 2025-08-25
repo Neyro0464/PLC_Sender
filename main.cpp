@@ -12,34 +12,28 @@
 #include "FileSender/UdpSender.h"
 
 int main(int argc, char *argv[]) {
-
     QCoreApplication a(argc, argv);
-    // Create second output stream to log console messages in the file "app.log"
     qInstallMessageHandler(Utility::СustomMessageHandler);
     Utility::СlearLogFile();
 
-    QString tleFilePath = "ServiceFiles/definiteTLE.txt";        // File with TLE info
-    QString settingsFilePath = "ServiceFiles/settings.ini";      // File with settings
-    QString resultFilePath = "NoradSchedule.txt";               // File with results for one satellite
-    QString resultBinFile = "NoradSchedule.bin";                // File with results in binary format for sending
+    QString tleFilePath = "ServiceFiles/definiteTLE.txt";
+    QString settingsFilePath = "ServiceFiles/settings.ini";
+    QString resultFilePath = "NoradSchedule.txt";
+    QString resultBinFile = "NoradSchedule.bin";
 
-    // class for saving results in file
     std::unique_ptr<INoradScheduleSaver> saver = std::make_unique<FileNoradScheduleSaver>(resultFilePath.toStdString());
 
     QFileInfo settingsFileInfo(settingsFilePath);
-    // Create file if it doesn't exists
     if (!settingsFileInfo.exists()) {
         Utility::CreateSettingsFile(settingsFilePath);
         qInfo() << "[Main]: Created new settings file (settings.ini).";
     }
-
 
     QSettings settings(settingsFilePath, QSettings::IniFormat);
     settings.beginGroup("Command");
     saver->setCommand(settings.value("cmd").toInt());
     settings.endGroup();
 
-    // Settings for log in Space-Track.org
     settings.beginGroup("TLEbySpaceTrack");
     QString login = settings.value("login").toString();
     QString pass = settings.value("pass").toString();
@@ -48,14 +42,15 @@ int main(int argc, char *argv[]) {
         qCritical() << "[Main]:[settings]: no login or pass!";
     }
 
-    // Settings for calculations
     settings.beginGroup("ObserverConfiguration");
-    CTleProcessor tleProcessor(std::move(saver), settings.value("Latitude").toDouble(), settings.value("Longitude").toDouble(), settings.value("Altitude").toDouble());
+    CTleProcessor tleProcessor(std::move(saver),
+                               settings.value("Latitude").toDouble(),
+                               settings.value("Longitude").toDouble(),
+                               settings.value("Altitude").toDouble());
     uint numKA = settings.value("numKA").toUInt();
     uint dt_mks = settings.value("dt_mks").toUInt();
     settings.endGroup();
 
-    // Create a timer for the 10-second timeout
     QTimer timeoutTimer;
     timeoutTimer.setSingleShot(true);
     QObject::connect(&timeoutTimer, &QTimer::timeout, [&]() {
@@ -63,7 +58,6 @@ int main(int argc, char *argv[]) {
         QCoreApplication::exit(0);
     });
 
-    // Make connection to start calculations after TLE data file will be downloaded
     QObject::connect(&tleProcessor, &CTleProcessor::tleDownloaded, [&](bool success) {
         if (!success) {
             qCritical() << "[Main]: Failed to download TLE. Exiting...";
@@ -71,10 +65,8 @@ int main(int argc, char *argv[]) {
             return;
         }
 
-        // Start calculations
         tleProcessor.loadTleFile(tleFilePath.toStdString());
         tleProcessor.processTleData(numKA, dt_mks);
-        // Utility::ConvertToBinary(resultFilePath, "NoradSchedule.bin");
         std::vector<NORAD_SCHEDULE> data = tleProcessor.getProcessedData();
 
         settings.beginGroup("UdpConnection");
@@ -82,14 +74,10 @@ int main(int argc, char *argv[]) {
         quint16 udpPort = settings.value("port").toUInt();
         settings.endGroup();
 
-        UdpSender dataForSend(data, QHostAddress(udpHost), udpPort);
-        // В функции main после создания UdpSender:
+        // Создаем UdpSender с дополнительным параметром numKA
+        UdpSender dataForSend(data, numKA, QHostAddress(udpHost), udpPort);
         qDebug() << "[Main]: UdpSender created successfully";
 
-        // Перед отправкой данных:
-        qDebug() << "[Main]: About to send UDP data";
-
-        // Оберните отправку в try-catch:
         try {
             if (dataForSend.sendData()) {
                 qDebug() << "[Main]: Data sent successfully via UDP";
@@ -101,30 +89,15 @@ int main(int argc, char *argv[]) {
             qCritical() << "[Main]: Exception during UDP send:" << e.what();
             QCoreApplication::exit(1);
         }
-        // // Sending formed file to PLC by SFTP
-        // settings.beginGroup("SshConnection");
-        // // std::unique_ptr<IFileSenderPLC> sender = std::make_unique<SftpFileSender>(settings.value("host").toString(), settings.value("port").toUInt(),
-        // //                                                                           settings.value("login").toString(), settings.value("password").toString(),
-        // //                                                                           resultFilePath, resultFilePath);
-        // std::unique_ptr<IFileSenderPLC> sender = std::make_unique<UdpFileSender>("NoradSchedule.bin", settings.value("host").toString(), settings.value("port").toUInt());
-        // settings.endGroup();
-        // if (sender->send()) {
-        //     qDebug() << "File sent successfully";
-        // } else {
-        //     qWarning() << "Failed to send file";
-        // }
 
-        // Adding UDP receiver
         ReceiverUDP receiver{};
 
-        // Start listening on default port 3545
         if (!receiver.startListening()) {
             qCritical() << "[Main]: Failed to start UDP receiver";
             QCoreApplication::exit(1);
             return;
         }
 
-        // Connect UDP receiver to handle response
         QObject::connect(&receiver, &ReceiverUDP::responseReceived, [&](QByteArray receivedData) {
             std::optional<UtilResponseParser::ResponseHeader> answer = UtilResponseParser::parseResponse(receivedData);
             if (answer.has_value()) {
@@ -132,17 +105,14 @@ int main(int argc, char *argv[]) {
             } else {
                 qDebug() << "[Main]: No value in answer!";
             }
-            // Stop the timer since we received a response
             timeoutTimer.stop();
             qInfo() << "[Main]: UDP response received, exiting...";
             QCoreApplication::exit(0);
         });
 
-        // Start the 10-second timeout timer after sending the file
-        timeoutTimer.start(10000); // 10 seconds in milliseconds
+        timeoutTimer.start(10000);
     });
 
-    // Download TLE data from Space-Track.org (3-line format)
     tleProcessor.downloadTleFromUrl(numKA, tleFilePath.toStdString(), login.toStdString(), pass.toStdString());
 
     return a.exec();

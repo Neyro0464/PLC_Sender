@@ -1,14 +1,16 @@
 #include "UdpSender.h"
 #include <QDebug>
-#include <QByteArray>
-#include <cstring> // для memcpy
+#include <QFile>
+#include <QTextStream>
 
-// Модифицируем конструктор
 UdpSender::UdpSender(std::vector<NORAD_SCHEDULE>& data,
+                     uint32_t satelliteNumber,
                      const QHostAddress& targetAddress,
                      quint16 targetPort)
     : m_targetAddress(targetAddress), m_targetPort(targetPort)
 {
+    qDebug() << "[UdpSender]: Constructor started";
+
     m_udpSocket = new QUdpSocket(this);
 
     if(data.empty()) {
@@ -17,29 +19,33 @@ UdpSender::UdpSender(std::vector<NORAD_SCHEDULE>& data,
     }
 
     try {
-        m_result.resize(data.size());
+        // Размер = данные + 2 строки заголовка
+        m_data.resize(data.size() + 2);
 
+        // Текущее время для заголовков
+        uint32_t currentTime = static_cast<uint32_t>(libsgp4::DateTime::Now().Ticks());
+
+        // Первая строка заголовка [0]
+        m_data[0].col0 = currentTime;           // Время сервера
+        m_data[0].col1 = data.size();          // Количество точек
+        m_data[0].col2 = 0;                    // Место под контрольную сумму
+
+        // Вторая строка заголовка [1]
+        m_data[1].col0 = currentTime;          // Время запроса
+        m_data[1].col1 = satelliteNumber;      // Номер спутника
+        m_data[1].col2 = 0;                    // Код ошибки
+
+        // Заполняем данные точек
         for (size_t i = 0; i < data.size(); i++) {
-            // Время всегда первое в каждой структуре
-            uint32_t timestamp = static_cast<uint32_t>(data[i].onDate.Ticks());
-
-            // Point (сохраняем REAL как есть)
-            m_result[i].point.Ti = timestamp;
-            m_result[i].point.Az = data[i].azm;
-            m_result[i].point.El = data[i].elv;
-
-            // Atribute
-            m_result[i].atr.Ti = timestamp;
-            m_result[i].atr.d1 = i;
-            m_result[i].atr.d2 = data.size();
-
-            // Sum (для расчёта контрольной суммы)
-            m_result[i].sum.Ti = timestamp;
-            m_result[i].sum.Az = static_cast<uint32_t>(data[i].azm * 1000);
-            m_result[i].sum.El = static_cast<uint32_t>(data[i].elv * 1000);
+            m_data[i + 2].col0 = static_cast<uint32_t>(data[i].onDate.Ticks());
+            m_data[i + 2].col1 = data[i].azm;
+            m_data[i + 2].col2 = data[i].elv;
         }
 
         calculateCheckSum();
+        qDebug() << "[UdpSender]: Data prepared successfully";
+        qDebug() << "[UdpSender]: Total points:" << data.size();
+        qDebug() << "[UdpSender]: Total size:" << getDataSize() << "bytes";
 
     } catch (const std::exception& e) {
         qCritical() << "[UdpSender]: Exception in constructor:" << e.what();
@@ -47,73 +53,65 @@ UdpSender::UdpSender(std::vector<NORAD_SCHEDULE>& data,
     }
 }
 
-UdpSender::~UdpSender()
-{
-    qDebug() << "[UdpSender]: Destructor called";
-    if (m_udpSocket) {
-        m_udpSocket->close();
-        delete m_udpSocket;
-        m_udpSocket = nullptr;
-    }
-}
-
 void UdpSender::calculateCheckSum()
 {
-    m_checkSum = 0;
-    if (m_result.empty()) return;
+    if (m_data.size() < 2) return;
 
-    // Используем XOR как в Codesys
-    for (const auto& item : m_result) {
-        // Только для структуры Sum
-        m_checkSum ^= item.sum.Ti ^ item.sum.Az ^ item.sum.El;
-    }
+    // XOR второй строки заголовка
+    uint32_t checksum = m_data[1].col0;  // Время запроса
+    checksum ^= static_cast<uint32_t>(m_data[1].col1);  // Номер спутника
+    checksum ^= static_cast<uint32_t>(m_data[1].col2);  // Код ошибки
+
+    // Записываем контрольную сумму в первую строку
+    m_data[0].col2 = checksum;
+
+    qDebug() << "[UdpSender]: Checksum calculated:" << checksum;
 }
 
 QByteArray UdpSender::prepareDataForSend() const
 {
-    if (m_result.empty()) {
+    if (m_data.empty()) {
         qWarning() << "[UdpSender]: No data to prepare";
         return QByteArray();
     }
 
-    const size_t headerSize = sizeof(uint32_t) * 2;
-    const size_t dataSize = m_result.size() * sizeof(Mas);
+    const size_t totalSize = m_data.size() * sizeof(DataRow);
+    QByteArray data(totalSize, 0);
 
-    QByteArray data;
-    data.resize(headerSize + dataSize);
-    char* ptr = data.data();
+    memcpy(data.data(), m_data.constData(), totalSize);
 
-    // Записываем заголовок
-    *reinterpret_cast<uint32_t*>(ptr) = m_checkSum;
-    *reinterpret_cast<uint32_t*>(ptr + sizeof(uint32_t)) = m_result.size();
-
-    // Копируем данные структур
-    memcpy(ptr + headerSize, m_result.constData(), dataSize);
-
+    qDebug() << "[UdpSender]: Prepared data size:" << totalSize << "bytes";
     return data;
 }
 
 void UdpSender::debugPrintData() const
 {
-    qDebug() << "=== UDP Sender Debug ===";
-    qDebug() << "Header:";
-    qDebug() << "- Checksum:" << m_checkSum;
-    qDebug() << "- Items count:" << m_result.size();
-
-    for (size_t i = 0; i < m_result.size(); i++) {
-        qDebug() << "Item" << i << ":";
-        qDebug() << "  Point: Ti =" << m_result[i].point.Ti
-                 << "Az =" << m_result[i].point.Az
-                 << "El =" << m_result[i].point.El;
-        qDebug() << "  Sum: Ti =" << m_result[i].sum.Ti
-                 << "Az =" << m_result[i].sum.Az
-                 << "El =" << m_result[i].sum.El;
+    QFile file("NoradSchedule.txt");
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        qCritical() << "Could not open NoradSchedule.txt for writing";
+        return;
     }
+
+    QTextStream out(&file);
+    out.setRealNumberPrecision(3);
+    out.setRealNumberNotation(QTextStream::FixedNotation);
+
+    // Записываем строки данных
+    for (int i = 0; i < m_data.size(); i++) {
+        out << QString("[%1],[0] %2 [%1],[1] %3 [%1],[2] %4\n")
+                   .arg(i)
+                   .arg(m_data[i].col0)
+                   .arg(m_data[i].col1)
+                   .arg(m_data[i].col2);
+    }
+
+    file.close();
+    qDebug() << "[UdpSender]: Debug data written to NoradSchedule.txt";
 }
+
 bool UdpSender::sendData()
 {
-
-    if (m_result.empty()) {
+    if (m_data.empty()) {
         qWarning() << "[UdpSender]: No data to send";
         emit errorOccurred("No data to send");
         return false;
@@ -122,7 +120,6 @@ bool UdpSender::sendData()
     debugPrintData();
 
     QByteArray dataToSend = prepareDataForSend();
-
     if (dataToSend.isEmpty()) {
         qWarning() << "[UdpSender]: Prepared data is empty";
         emit errorOccurred("Prepared data is empty");
@@ -139,7 +136,18 @@ bool UdpSender::sendData()
         return false;
     }
 
-    qInfo() << "[UdpSender]: Successfully sent" << bytesSent << "bytes";
+    qInfo() << "[UdpSender]: Successfully sent" << bytesSent << "bytes to"
+            << m_targetAddress.toString() << ":" << m_targetPort;
     emit dataSent(true, bytesSent);
     return true;
+}
+
+UdpSender::~UdpSender()
+{
+    qDebug() << "[UdpSender]: Destructor called";
+    if (m_udpSocket) {
+        m_udpSocket->close();
+        delete m_udpSocket;
+        m_udpSocket = nullptr;
+    }
 }
