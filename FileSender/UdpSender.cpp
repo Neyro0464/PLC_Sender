@@ -51,8 +51,36 @@ UdpSender::UdpSender(std::vector<NORAD_SCHEDULE>& data,
 
 void UdpSender::calculateCheckSum()
 {
-    // XOR второй строки заголовка
-    m_header[0].col2 = m_header[1].col0 ^ m_header[1].col1 ^ m_header[1].col2;
+    if (m_data.empty()) return;
+
+    // Сначала XOR второй строки заголовка
+    uint32_t checksum = m_header[1].col0 ^ m_header[1].col1 ^ m_header[1].col2;
+
+    // Теперь обрабатываем все данные через union
+    DataUnion u;
+    for (const auto& point : m_data) {
+        // Копируем данные в union
+        u.data.time = point.time;
+        u.data.azimuth = point.azimuth;
+        u.data.elevation = point.elevation;
+
+        // XOR всех слов
+        checksum ^= u.words[0];  // time
+        checksum ^= u.words[1];  // azimuth как uint32_t
+        checksum ^= u.words[2];  // elevation как uint32_t
+    }
+
+    // Записываем результат в заголовок
+    m_header[0].col2 = checksum;
+
+    qDebug() << "[UdpSender]: Checksum calculated:"
+             << QString("0x%1").arg(checksum, 8, 16, QChar('0'));
+
+    // Отладочный вывод для проверки
+    DataUnion debug;
+    debug.data.azimuth = m_data[0].azimuth;
+    qDebug() << "First azimuth as float:" << m_data[0].azimuth
+             << "as uint32:" << QString("0x%1").arg(debug.words[1], 8, 16, QChar('0'));
 }
 
 QByteArray UdpSender::prepareDataForSend() const
@@ -64,32 +92,25 @@ QByteArray UdpSender::prepareDataForSend() const
     // Записываем заголовок
     for (int i = 0; i < 2; i++) {
         uint32_t* dest = reinterpret_cast<uint32_t*>(ptr + i * sizeof(HeaderRow));
-
-        // Преобразуем каждое значение в little-endian
         dest[0] = toLittleEndian32(m_header[i].col0);
         dest[1] = toLittleEndian32(m_header[i].col1);
         dest[2] = toLittleEndian32(m_header[i].col2);
     }
 
-    // Записываем данные точек
+    // Записываем данные через union для гарантии правильного представления
     uint8_t* dataPtr = ptr + 2 * sizeof(HeaderRow);
+    DataUnion u;
+
     for (const auto& point : m_data) {
-        uint32_t* timePtr = reinterpret_cast<uint32_t*>(dataPtr);
-        float* valuesPtr = reinterpret_cast<float*>(dataPtr + sizeof(uint32_t));
+        u.data.time = point.time;
+        u.data.azimuth = point.azimuth;
+        u.data.elevation = point.elevation;
 
-        *timePtr = toLittleEndian32(point.time);
-
-        // Преобразуем float значения
-        union {
-            float f;
-            uint32_t i;
-        } az, el;
-
-        az.f = point.azimuth;
-        el.f = point.elevation;
-
-        *reinterpret_cast<uint32_t*>(&valuesPtr[0]) = toLittleEndian32(az.i);
-        *reinterpret_cast<uint32_t*>(&valuesPtr[1]) = toLittleEndian32(el.i);
+        // Преобразуем каждое слово в little-endian
+        uint32_t* dest = reinterpret_cast<uint32_t*>(dataPtr);
+        dest[0] = toLittleEndian32(u.words[0]);
+        dest[1] = toLittleEndian32(u.words[1]);
+        dest[2] = toLittleEndian32(u.words[2]);
 
         dataPtr += sizeof(DataRow);
     }
