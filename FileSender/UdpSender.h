@@ -26,11 +26,7 @@ private:
     };
 
     union DataUnion {
-        struct {
-            uint32_t time;
-            float azimuth;
-            float elevation;
-        } data;
+        DataRow data;
         uint32_t words[3];  // 3 слова по 4 байта
     };
 #pragma pack(pop)

@@ -588,6 +588,11 @@ public:
         return static_cast<int>(m_encoded % TicksPerMinute / TicksPerSecond);
     }
 
+    uint32_t SecondsFromTicks() const
+    {
+        return static_cast<uint32_t>((m_encoded - UnixEpoch) / TicksPerSecond);
+    }
+
     /**
      * Microsecond component
      * @returns the microsecond component

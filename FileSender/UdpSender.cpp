@@ -3,6 +3,9 @@
 #include <QFile>
 #include <QTextStream>
 
+#include <chrono>
+
+
 // UdpSender.cpp
 UdpSender::UdpSender(std::vector<NORAD_SCHEDULE>& data,
                      uint32_t satelliteNumber,
@@ -21,7 +24,7 @@ UdpSender::UdpSender(std::vector<NORAD_SCHEDULE>& data,
 
     try {
         // Текущее время для заголовков
-        uint32_t currentTime = static_cast<uint32_t>(libsgp4::DateTime::Now().Ticks());
+        uint32_t currentTime = libsgp4::DateTime::Now().SecondsFromTicks();
 
         // Первая строка заголовка [0]
         m_header[0].col0 = currentTime;
@@ -36,10 +39,11 @@ UdpSender::UdpSender(std::vector<NORAD_SCHEDULE>& data,
         // Заполняем данные точек
         m_data.resize(data.size());
         for (size_t i = 0; i < data.size(); i++) {
-            m_data[i].time = static_cast<uint32_t>(data[i].onDate.Ticks());
+            m_data[i].time = data[i].onDate.SecondsFromTicks();
             m_data[i].azimuth = data[i].azm;
             m_data[i].elevation = data[i].elv;
         }
+
 
         calculateCheckSum();
 
