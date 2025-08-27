@@ -3,9 +3,6 @@
 #include <QFile>
 #include <QTextStream>
 
-#include <chrono>
-
-
 // UdpSender.cpp
 UdpSender::UdpSender(std::vector<NORAD_SCHEDULE>& data,
                      uint32_t satelliteNumber,
@@ -16,6 +13,7 @@ UdpSender::UdpSender(std::vector<NORAD_SCHEDULE>& data,
     qDebug() << "[UdpSender]: Constructor started";
 
     m_udpSocket = new QUdpSocket(this);
+    m_udpSocket->bind(3545);
 
     if(data.empty()) {
         qCritical() << "[UdpSender][Constructor]: No data to copy";

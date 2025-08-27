@@ -134,11 +134,11 @@ bool CTleProcessor::loadTleFile(const std::string& file)
     return true;
 }
 
-bool CTleProcessor::processTleData(const uint32_t satelliteNumber, const uint32_t dt_mks)
+bool CTleProcessor::processTleData(const uint32_t satelliteNumber, const uint32_t dt_mks, const uint32_t dt_delay)
 {
     if(!m_noradPrc) return false;
 
-    CNoradProcessor::NORAD_ERROR e = m_noradPrc->genSchedule(satelliteNumber, m_vecNoradSchedule, m_noradSaver, dt_mks);
+    CNoradProcessor::NORAD_ERROR e = m_noradPrc->genSchedule(satelliteNumber, m_vecNoradSchedule, m_noradSaver, dt_mks, dt_delay);
     qDebug() << "[CTleProcessor::processTleData]: status:" <<e;
 
     return true;

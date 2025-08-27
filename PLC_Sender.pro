@@ -10,15 +10,14 @@ unix:!macx: LIBS += -L$$PWD/LIBS/Bin/ -lsgp4s
 LIBS += -lssh
 
 SOURCES += \
-        FileSender/UdpFileSender.cpp \
         FileSender/UdpSender.cpp \
-        Receiver/ReceiverUDP.cpp \
-        ScheduleSaver/DatabaseNoradScheduleSaver.cpp \
+        Receiver/QueryHandler.cpp \
+        Receiver/UdpListener.cpp \
         ScheduleSaver/FileNoradScheduleSaver.cpp \
         NoradProcessor.cpp \
         FileSender/SftpFileSender.cpp \
         TleProcessor.cpp \
-        Utils/UtilResponseParser.cpp \
+        # Utils/UtilResponseParser.cpp \
         Utils/Utility.cpp \
         main.cpp
 
@@ -33,16 +32,13 @@ DISTFILES += \
     setup.sh
 
 HEADERS += \
-    FileSender/UdpFileSender.h \
     FileSender/UdpSender.h \
-    Receiver/ReceiverUDP.h \
-    ScheduleSaver/DatabaseNoradScheduleSaver.h \
+    Receiver/QueryHandler.h \
+    Receiver/UdpListener.h \
     ScheduleSaver/FileNoradScheduleSaver.h \
     ScheduleSaver/INoradScheduleSaver.h \
     NoradProcessor.h \
-    FileSender/IFileSenderPLC.h \
-    FileSender/SftpFileSender.h \
     TleProcessor.h \
-    Utils/UtilResponseParser.h \
+    # Utils/UtilResponseParser.h \
     Utils/Utility.h
 

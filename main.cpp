@@ -7,22 +7,22 @@
 #include "TleProcessor.h"
 #include "ScheduleSaver/FileNoradScheduleSaver.h"
 #include "Utils/Utility.h"
-#include "Receiver/ReceiverUDP.h"
-#include "Utils/UtilResponseParser.h"
-#include "FileSender/UdpSender.h"
+#include "./Receiver/UdpListener.h"
+#include "./Receiver/QueryHandler.h"
+#include "./FileSender/UdpSender.h"
 
 int main(int argc, char *argv[]) {
     QCoreApplication a(argc, argv);
+    // Настройка логирования
+    Utility::ClearOldLogs("./ServiceFiles/app.log", 5);
     qInstallMessageHandler(Utility::СustomMessageHandler);
-    Utility::СlearLogFile();
+
 
     QString tleFilePath = "ServiceFiles/definiteTLE.txt";
     QString settingsFilePath = "ServiceFiles/settings.ini";
-    QString resultFilePath = "NoradSchedule.txt";
-    QString resultBinFile = "NoradSchedule.bin";
+    QString resultFilePath = "ServiceFiles/NoradSchedule.txt";
 
-    std::unique_ptr<INoradScheduleSaver> saver = std::make_unique<FileNoradScheduleSaver>(resultFilePath.toStdString());
-
+    // Загрузка настроек
     QFileInfo settingsFileInfo(settingsFilePath);
     if (!settingsFileInfo.exists()) {
         Utility::CreateSettingsFile(settingsFilePath);
@@ -30,90 +30,85 @@ int main(int argc, char *argv[]) {
     }
 
     QSettings settings(settingsFilePath, QSettings::IniFormat);
-    settings.beginGroup("Command");
-    saver->setCommand(settings.value("cmd").toInt());
+
+    // Настройки подключения UDP
+    settings.beginGroup("UdpConnection");
+    QString udpHost = settings.value("host").toString();
+    quint16 udpPort = settings.value("port").toUInt();
     settings.endGroup();
 
+    // Настройки наблюдателя
+    settings.beginGroup("ObserverConfiguration");
+    double latitude = settings.value("Latitude").toDouble();
+    double longitude = settings.value("Longitude").toDouble();
+    double altitude = settings.value("Altitude").toDouble();
+    uint numKA = settings.value("numKA").toUInt();
+    uint dt_mks = settings.value("dt_mks").toUInt();
+    uint dt_delay = settings.value("dt_delay_s").toUInt();
+    settings.endGroup();
+
+    // Настройки Space-Track
     settings.beginGroup("TLEbySpaceTrack");
     QString login = settings.value("login").toString();
     QString pass = settings.value("pass").toString();
     settings.endGroup();
-    if(login.isEmpty() or pass.isEmpty()){
+
+    if(login.isEmpty() || pass.isEmpty()){
         qCritical() << "[Main]:[settings]: no login or pass!";
     }
 
-    settings.beginGroup("ObserverConfiguration");
-    CTleProcessor tleProcessor(std::move(saver),
-                               settings.value("Latitude").toDouble(),
-                               settings.value("Longitude").toDouble(),
-                               settings.value("Altitude").toDouble());
-    uint numKA = settings.value("numKA").toUInt();
-    uint dt_mks = settings.value("dt_mks").toUInt();
-    settings.endGroup();
+    // Создаем UDP listener
+    UdpListener udpListener(udpPort);
+    if (!udpListener.startListening()) {
+        qCritical() << "[Main]: Failed to start UDP listener";
+        return 1;
+    }
 
-    QTimer timeoutTimer;
-    timeoutTimer.setSingleShot(true);
-    QObject::connect(&timeoutTimer, &QTimer::timeout, [&]() {
-        qInfo() << "[Main]: 10-second timeout reached, no UDP response received. Exiting...";
-        QCoreApplication::exit(0);
-    });
+    // Обработчик запросов
+    QueryHandler queryHandler;
 
-    QObject::connect(&tleProcessor, &CTleProcessor::tleDownloaded, [&](bool success) {
-        if (!success) {
-            qCritical() << "[Main]: Failed to download TLE. Exiting...";
-            QCoreApplication::exit(1);
-            return;
+    // Обработчик TLE
+    std::unique_ptr<INoradScheduleSaver> saver = std::make_unique<FileNoradScheduleSaver>(resultFilePath.toStdString());
+    CTleProcessor tleProcessor(std::move(saver), latitude, longitude, altitude);
+
+    // Обработка входящих UDP пакетов
+    QObject::connect(&udpListener, &UdpListener::dataReceived, [&](const QByteArray &data, const QHostAddress &sender, quint16 senderPort) {
+        qInfo() << "[Main]: Received UDP packet from" << sender.toString() << ":" << senderPort;
+
+        // Проверяем корректность пакета
+        QueryHandler::ErrorCodes errorCode = queryHandler.validatePacket(data);
+
+        if (errorCode != QueryHandler::NO_ERROR) {
+            qCritical() << "[Main]: Invalid packet received, error code:" << errorCode;
+            return; // Продолжаем слушать порт
         }
 
-        tleProcessor.loadTleFile(tleFilePath.toStdString());
-        tleProcessor.processTleData(numKA, dt_mks);
-        std::vector<NORAD_SCHEDULE> data = tleProcessor.getProcessedData();
-
-        settings.beginGroup("UdpConnection");
-        QString udpHost = settings.value("host").toString();
-        quint16 udpPort = settings.value("port").toUInt();
-        settings.endGroup();
-
-        // Создаем UdpSender с дополнительным параметром numKA
-        UdpSender dataForSend(data, numKA, QHostAddress(udpHost), udpPort);
-        qDebug() << "[Main]: UdpSender created successfully";
-
-        try {
-            if (dataForSend.sendData()) {
-                qDebug() << "[Main]: Data sent successfully via UDP";
-                qDebug() << "[Main]: Total data size:" << dataForSend.getDataSize() << "bytes";
-            } else {
-                qWarning() << "[Main]: Failed to send data via UDP";
+        // Если пакет корректен, загружаем и обрабатываем TLE данные
+        QObject::connect(&tleProcessor, &CTleProcessor::tleDownloaded, [&](bool success) {
+            if (!success) {
+                qCritical() << "[Main]: Failed to download TLE";
+                return;
             }
-        } catch (const std::exception& e) {
-            qCritical() << "[Main]: Exception during UDP send:" << e.what();
-            QCoreApplication::exit(1);
-        }
 
-        ReceiverUDP receiver{};
+            tleProcessor.loadTleFile(tleFilePath.toStdString());
+            tleProcessor.processTleData(numKA, dt_mks, dt_delay);
+            std::vector<NORAD_SCHEDULE> scheduleData = tleProcessor.getProcessedData();
 
-        if (!receiver.startListening()) {
-            qCritical() << "[Main]: Failed to start UDP receiver";
-            QCoreApplication::exit(1);
-            return;
-        }
+            // Формируем и отправляем ответ
+            UdpSender udpSender(scheduleData, numKA, sender, senderPort);
 
-        QObject::connect(&receiver, &ReceiverUDP::responseReceived, [&](QByteArray receivedData) {
-            std::optional<UtilResponseParser::ResponseHeader> answer = UtilResponseParser::parseResponse(receivedData);
-            if (answer.has_value()) {
-                answer.value().print();
+            if (udpSender.sendData()) {
+                qInfo() << "[Main]: Response sent successfully to" << sender.toString() << ":" << senderPort;
             } else {
-                qDebug() << "[Main]: No value in answer!";
+                qCritical() << "[Main]: Failed to send response";
             }
-            timeoutTimer.stop();
-            qInfo() << "[Main]: UDP response received, exiting...";
-            QCoreApplication::exit(0);
         });
 
-        timeoutTimer.start(10000);
+        // Запускаем загрузку TLE данных
+        tleProcessor.downloadTleFromUrl(numKA, tleFilePath.toStdString(), login.toStdString(), pass.toStdString());
     });
 
-    tleProcessor.downloadTleFromUrl(numKA, tleFilePath.toStdString(), login.toStdString(), pass.toStdString());
+    qInfo() << "[Main]: Application started, listening on UDP port" << udpPort;
 
     return a.exec();
 }

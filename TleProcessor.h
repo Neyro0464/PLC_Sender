@@ -18,7 +18,7 @@ public:
     bool downloadTleFromUrl(const uint32_t satelliteNumber, const std::string& savePath, const std::string& username, const std::string& password);
 
     bool loadTleFile(const std::string& file);
-    bool processTleData(const uint32_t satelliteNumber, const uint32_t dt_mks);
+    bool processTleData(const uint32_t satelliteNumber, const uint32_t dt_mks, const uint32_t dt_delay = 0);
 
     const std::vector<NORAD_SCHEDULE>& getProcessedData() const { return m_vecNoradSchedule; }
 
