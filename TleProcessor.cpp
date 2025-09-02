@@ -1,12 +1,17 @@
 #include "TleProcessor.h"
 
-#include <QCoreApplication>
 #include <QNetworkAccessManager>
-#include <QNetworkReply>
 #include <QNetworkRequest>
-#include <QFile>
-#include <QDebug>
+#include <QNetworkReply>
+#include <QNetworkProxy>
 #include <QUrl>
+#include <QString>
+#include <QByteArray>
+#include <QFile>
+#include <QFileInfo>
+#include <QDateTime>
+#include <QTextStream>
+#include <QDebug>
 
 CTleProcessor::CTleProcessor(std::unique_ptr<INoradScheduleSaver> saver, double lat, double lon, double altm)
 {
@@ -16,55 +21,36 @@ CTleProcessor::CTleProcessor(std::unique_ptr<INoradScheduleSaver> saver, double 
     m_noradPrc.reset(new CNoradProcessor(this, lat, lon, altm));
 }
 
+bool CTleProcessor::downloadTleFromUrl(const uint32_t satelliteNumber, const QString& savePath, const QString& username, const QString& password, const uint16_t port, const QString url, const uint32_t tleCacheHours) {
+    // Проверяем существующий файл
+    if (isTleFileValid(savePath, satelliteNumber, tleCacheHours)) {
+        qInfo() << "[CTleProcessor::downloadTleFromUrl]: Using cached TLE data for satellite:" << satelliteNumber;
+        emit tleDownloaded(true);
+        return true;
+    }
 
-// bool CTleProcessor::downloadTleFromUrl(const uint32_t satelliteNumber, const std::string& savePath){
-//     QNetworkAccessManager *manager = new QNetworkAccessManager(this);
-
-//     QString urlString = QString("https://celestrak.org/NORAD/elements/gp.php?CATNR=%1&FORMAT=TLE").arg(QString::number(satelliteNumber));
-//     QUrl url(urlString);
-//     QNetworkRequest request(url);
-//     request.setTransferTimeout(10000); // Таймаут 10 секунд
-
-//     qDebug() << "Downloading TLE data for " << satelliteNumber;
-
-//     QNetworkReply *reply = manager->get(request);
-//     connect(reply, &QNetworkReply::finished, this, [=]() {
-//         bool success = false;
-//         if (reply->error() == QNetworkReply::NoError) {
-//             QString outputFile = QString::fromStdString(savePath);
-//             QFile file(outputFile);
-//             if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-//                 file.write(reply->readAll());
-//                 file.close();
-//                 qDebug() << "Data successfully saved to" << outputFile;
-//                 success = true;
-//             } else {
-//                 qDebug() << "Error: Unable to open file" << outputFile << "for writing";
-//             }
-//         } else {
-//             qDebug() << "Error downloading data:" << reply->errorString();
-//         }
-//         reply->deleteLater();
-//         manager->deleteLater();
-
-//         emit tleDownloaded(success);
-//     });
-//     return true;
-// }
-bool CTleProcessor::downloadTleFromUrl(const uint32_t satelliteNumber, const std::string& savePath, const std::string& username, const std::string& password) {
     QNetworkAccessManager *manager = new QNetworkAccessManager(this);
+
+    // Настраиваем прокси для использования определенного порта
+    QNetworkProxy proxy;
+    proxy.setType(QNetworkProxy::HttpProxy);
+    proxy.setHostName("127.0.0.1");
+    proxy.setPort(port); // Используем порт из конфигурации
+    manager->setProxy(proxy);
+
 
     QUrl loginUrl("https://www.space-track.org/ajaxauth/login");
     QNetworkRequest loginRequest(loginUrl);
     loginRequest.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
     loginRequest.setTransferTimeout(10000);
 
-    QString loginData = QString("identity=%1&password=%2").arg(QString::fromStdString(username)).arg(QString::fromStdString(password));
+    QString loginData = QString("identity=%1&password=%2").arg(QString::fromStdString(username.toStdString())).arg(QString::fromStdString(password.toStdString()));
     QByteArray postData = loginData.toUtf8();
 
     qInfo() << "[CTleProcessor::downloadTleFromUrl]: Authenticating with Space-Track for satellite:" << satelliteNumber;
 
     QNetworkReply *loginReply = manager->post(loginRequest, postData);
+
 
     // Log in to download tle
     connect(loginReply, &QNetworkReply::finished, this, [=]() {
@@ -74,7 +60,7 @@ bool CTleProcessor::downloadTleFromUrl(const uint32_t satelliteNumber, const std
         if (loginReply->error() == QNetworkReply::NoError && httpStatus == 200)
         {
             qInfo() << "[CTleProcessor::downloadTleFromUrl]: Login successful. Now downloading TLE data for " << satelliteNumber;
-            QString urlString = QString("https://www.space-track.org/basicspacedata/query/class/tle_latest/NORAD_CAT_ID/%1/ORDINAL/1/format/3le").arg(satelliteNumber);
+            QString urlString = QString(url).arg(satelliteNumber);
             QUrl queryUrl(urlString);
             QNetworkRequest queryRequest(queryUrl);
             queryRequest.setTransferTimeout(10000);
@@ -86,7 +72,7 @@ bool CTleProcessor::downloadTleFromUrl(const uint32_t satelliteNumber, const std
                 qDebug() << "[CTleProcessor::downloadTleFromUrl]: Query HTTP status:" << queryHttpStatus << " | Error code:" << queryReply->error();
 
                 if (queryReply->error() == QNetworkReply::NoError && queryHttpStatus == 200) {
-                    QString outputFile = QString::fromStdString(savePath);
+                    QString outputFile = QString::fromStdString(savePath.toStdString());
                     QFile file(outputFile);
 
                     // If tle data received successfuly, then save downloaded data in file
@@ -125,6 +111,51 @@ bool CTleProcessor::downloadTleFromUrl(const uint32_t satelliteNumber, const std
     return true;
 }
 
+bool CTleProcessor::isTleFileValid(const QString& filePath, uint32_t satelliteNumber, const uint32_t tleCacheHours) {
+    QFile file(filePath);
+    if (!file.exists()) {
+        return false;
+    }
+
+    // Получаем время последней модификации файла
+    QFileInfo fileInfo(file);
+    QDateTime lastModified = fileInfo.lastModified();
+    QDateTime current = QDateTime::currentDateTime();
+    uint32_t hoursElapsed = lastModified.secsTo(current) / 3600;
+
+    if (hoursElapsed > tleCacheHours) {
+        return false;
+    }
+
+    // Проверяем содержимое файла
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return false;
+    }
+
+    QTextStream in(&file);
+    QString line;
+    bool foundSatellite = false;
+
+    // Читаем файл построчно
+    while (!in.atEnd()) {
+        line = in.readLine();
+        // Проверяем вторую строку TLE, которая содержит номер спутника
+        if (line.startsWith("2 ")) {
+            // Номер спутника находится в позициях 3-7
+            QString satNumStr = line.mid(2, 5).trimmed();
+            bool ok;
+            uint32_t fileSatNum = satNumStr.toUInt(&ok);
+            if (ok && fileSatNum == satelliteNumber) {
+                foundSatellite = true;
+                break;
+            }
+        }
+    }
+
+    file.close();
+    return foundSatellite;
+}
+
 bool CTleProcessor::loadTleFile(const std::string& file)
 {
     if(!m_noradPrc) return false;
@@ -134,11 +165,11 @@ bool CTleProcessor::loadTleFile(const std::string& file)
     return true;
 }
 
-bool CTleProcessor::processTleData(const uint32_t satelliteNumber, const uint32_t dt_mks, const uint32_t dt_delay)
+bool CTleProcessor::processTleData(const uint32_t satelliteNumber, const uint32_t dt_sec, const uint32_t dt_delay)
 {
     if(!m_noradPrc) return false;
 
-    CNoradProcessor::NORAD_ERROR e = m_noradPrc->genSchedule(satelliteNumber, m_vecNoradSchedule, m_noradSaver, dt_mks, dt_delay);
+    CNoradProcessor::NORAD_ERROR e = m_noradPrc->genSchedule(satelliteNumber, m_vecNoradSchedule, m_noradSaver, dt_sec, dt_delay);
     qDebug() << "[CTleProcessor::processTleData]: status:" <<e;
 
     return true;

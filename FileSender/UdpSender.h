@@ -46,12 +46,19 @@ private:
 
     void calculateCheckSum();
     QByteArray prepareDataForSend() const;
+    void closeSocket();
+
+    bool m_socketBound;
+
 
 public:
-    UdpSender(std::vector<NORAD_SCHEDULE>& data,
-              uint32_t satelliteNumber,
-              const QHostAddress& targetAddress = QHostAddress::LocalHost,
-              quint16 targetPort = 3545);
+    UdpSender(const std::vector<NORAD_SCHEDULE>& data,
+              const uint32_t satelliteNumber,
+              const QHostAddress& targetAddress,
+              const quint16 targetPort,
+              const uint32_t numberOfPoints,
+              const uint32_t reserved1,
+              const uint32_t statusCode);
     ~UdpSender();
 
     bool sendData();
@@ -59,6 +66,7 @@ public:
         return (2 * sizeof(HeaderRow) + m_data.size() * sizeof(DataRow));
     }
     void debugPrintData() const;
+
 
 signals:
     void dataSent(bool success, qint64 bytesSent);

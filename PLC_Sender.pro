@@ -15,7 +15,8 @@ SOURCES += \
         Receiver/UdpListener.cpp \
         ScheduleSaver/FileNoradScheduleSaver.cpp \
         NoradProcessor.cpp \
-        FileSender/SftpFileSender.cpp \
+        # FileSender/SftpFileSender.cpp \
+        ServerConfig.cpp \
         TleProcessor.cpp \
         # Utils/UtilResponseParser.cpp \
         Utils/Utility.cpp \
@@ -38,6 +39,7 @@ HEADERS += \
     ScheduleSaver/FileNoradScheduleSaver.h \
     ScheduleSaver/INoradScheduleSaver.h \
     NoradProcessor.h \
+    ServerConfig.h \
     TleProcessor.h \
     # Utils/UtilResponseParser.h \
     Utils/Utility.h

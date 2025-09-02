@@ -52,29 +52,31 @@ OBJECTS_DIR   = ./
 
 ####### Files
 
-SOURCES       = FileSender/UdpFileSender.cpp \
-		Receiver/ReceiverUDP.cpp \
-		ScheduleSaver/DatabaseNoradScheduleSaver.cpp \
+SOURCES       = FileSender/UdpSender.cpp \
+		Receiver/QueryHandler.cpp \
+		Receiver/UdpListener.cpp \
 		ScheduleSaver/FileNoradScheduleSaver.cpp \
 		NoradProcessor.cpp \
 		FileSender/SftpFileSender.cpp \
 		TleProcessor.cpp \
-		Utils/UtilResponseParser.cpp \
 		Utils/Utility.cpp \
-		main.cpp moc_ReceiverUDP.cpp \
+		main.cpp moc_UdpSender.cpp \
+		moc_QueryHandler.cpp \
+		moc_UdpListener.cpp \
 		moc_NoradProcessor.cpp \
 		moc_TleProcessor.cpp
-OBJECTS       = UdpFileSender.o \
-		ReceiverUDP.o \
-		DatabaseNoradScheduleSaver.o \
+OBJECTS       = UdpSender.o \
+		QueryHandler.o \
+		UdpListener.o \
 		FileNoradScheduleSaver.o \
 		NoradProcessor.o \
 		SftpFileSender.o \
 		TleProcessor.o \
-		UtilResponseParser.o \
 		Utility.o \
 		main.o \
-		moc_ReceiverUDP.o \
+		moc_UdpSender.o \
+		moc_QueryHandler.o \
+		moc_UdpListener.o \
 		moc_NoradProcessor.o \
 		moc_TleProcessor.o
 DIST          = ServiceFiles/settings.ini \
@@ -155,24 +157,20 @@ DIST          = ServiceFiles/settings.ini \
 		/usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/exceptions.prf \
 		/usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/yacc.prf \
 		/usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/lex.prf \
-		PLC_Sender.pro FileSender/UdpFileSender.h \
-		Receiver/ReceiverUDP.h \
-		ScheduleSaver/DatabaseNoradScheduleSaver.h \
+		PLC_Sender.pro FileSender/UdpSender.h \
+		Receiver/QueryHandler.h \
+		Receiver/UdpListener.h \
 		ScheduleSaver/FileNoradScheduleSaver.h \
 		ScheduleSaver/INoradScheduleSaver.h \
 		NoradProcessor.h \
-		FileSender/IFileSenderPLC.h \
-		FileSender/SftpFileSender.h \
 		TleProcessor.h \
-		Utils/UtilResponseParser.h \
-		Utils/Utility.h FileSender/UdpFileSender.cpp \
-		Receiver/ReceiverUDP.cpp \
-		ScheduleSaver/DatabaseNoradScheduleSaver.cpp \
+		Utils/Utility.h FileSender/UdpSender.cpp \
+		Receiver/QueryHandler.cpp \
+		Receiver/UdpListener.cpp \
 		ScheduleSaver/FileNoradScheduleSaver.cpp \
 		NoradProcessor.cpp \
 		FileSender/SftpFileSender.cpp \
 		TleProcessor.cpp \
-		Utils/UtilResponseParser.cpp \
 		Utils/Utility.cpp \
 		main.cpp
 QMAKE_TARGET  = PLC_Sender
@@ -356,8 +354,8 @@ distdir: FORCE
 	@test -d $(DISTDIR) || mkdir -p $(DISTDIR)
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
 	$(COPY_FILE) --parents /usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/data/dummy.cpp $(DISTDIR)/
-	$(COPY_FILE) --parents FileSender/UdpFileSender.h Receiver/ReceiverUDP.h ScheduleSaver/DatabaseNoradScheduleSaver.h ScheduleSaver/FileNoradScheduleSaver.h ScheduleSaver/INoradScheduleSaver.h NoradProcessor.h FileSender/IFileSenderPLC.h FileSender/SftpFileSender.h TleProcessor.h Utils/UtilResponseParser.h Utils/Utility.h $(DISTDIR)/
-	$(COPY_FILE) --parents FileSender/UdpFileSender.cpp Receiver/ReceiverUDP.cpp ScheduleSaver/DatabaseNoradScheduleSaver.cpp ScheduleSaver/FileNoradScheduleSaver.cpp NoradProcessor.cpp FileSender/SftpFileSender.cpp TleProcessor.cpp Utils/UtilResponseParser.cpp Utils/Utility.cpp main.cpp $(DISTDIR)/
+	$(COPY_FILE) --parents FileSender/UdpSender.h Receiver/QueryHandler.h Receiver/UdpListener.h ScheduleSaver/FileNoradScheduleSaver.h ScheduleSaver/INoradScheduleSaver.h NoradProcessor.h TleProcessor.h Utils/Utility.h $(DISTDIR)/
+	$(COPY_FILE) --parents FileSender/UdpSender.cpp Receiver/QueryHandler.cpp Receiver/UdpListener.cpp ScheduleSaver/FileNoradScheduleSaver.cpp NoradProcessor.cpp FileSender/SftpFileSender.cpp TleProcessor.cpp Utils/Utility.cpp main.cpp $(DISTDIR)/
 
 
 clean: compiler_clean 
@@ -389,13 +387,32 @@ compiler_moc_predefs_clean:
 moc_predefs.h: /usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/data/dummy.cpp
 	g++ -pipe -O2 -std=gnu++1z -Wall -Wextra -dM -E -o moc_predefs.h /usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/data/dummy.cpp
 
-compiler_moc_header_make_all: moc_ReceiverUDP.cpp moc_NoradProcessor.cpp moc_TleProcessor.cpp
+compiler_moc_header_make_all: moc_UdpSender.cpp moc_QueryHandler.cpp moc_UdpListener.cpp moc_NoradProcessor.cpp moc_TleProcessor.cpp
 compiler_moc_header_clean:
-	-$(DEL_FILE) moc_ReceiverUDP.cpp moc_NoradProcessor.cpp moc_TleProcessor.cpp
-moc_ReceiverUDP.cpp: Receiver/ReceiverUDP.h \
+	-$(DEL_FILE) moc_UdpSender.cpp moc_QueryHandler.cpp moc_UdpListener.cpp moc_NoradProcessor.cpp moc_TleProcessor.cpp
+moc_UdpSender.cpp: FileSender/UdpSender.h \
+		ScheduleSaver/INoradScheduleSaver.h \
+		LIBS/Include/libsgp4/Observer.h \
+		LIBS/Include/libsgp4/CoordGeodetic.h \
+		LIBS/Include/libsgp4/Util.h \
+		LIBS/Include/libsgp4/Globals.h \
+		LIBS/Include/libsgp4/Eci.h \
+		LIBS/Include/libsgp4/Vector.h \
+		LIBS/Include/libsgp4/DateTime.h \
+		LIBS/Include/libsgp4/TimeSpan.h \
 		moc_predefs.h \
 		/usr/lib/qt5/bin/moc
-	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/vladimir/PLC_Sender/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/vladimir/PLC_Sender -I/home/vladimir/PLC_Sender/LIBS/Include -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/13 -I/usr/include/x86_64-linux-gnu/c++/13 -I/usr/include/c++/13/backward -I/usr/lib/gcc/x86_64-linux-gnu/13/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include Receiver/ReceiverUDP.h -o moc_ReceiverUDP.cpp
+	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/vladimir/PLC_Sender/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/vladimir/PLC_Sender -I/home/vladimir/PLC_Sender/LIBS/Include -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/13 -I/usr/include/x86_64-linux-gnu/c++/13 -I/usr/include/c++/13/backward -I/usr/lib/gcc/x86_64-linux-gnu/13/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include FileSender/UdpSender.h -o moc_UdpSender.cpp
+
+moc_QueryHandler.cpp: Receiver/QueryHandler.h \
+		moc_predefs.h \
+		/usr/lib/qt5/bin/moc
+	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/vladimir/PLC_Sender/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/vladimir/PLC_Sender -I/home/vladimir/PLC_Sender/LIBS/Include -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/13 -I/usr/include/x86_64-linux-gnu/c++/13 -I/usr/include/c++/13/backward -I/usr/lib/gcc/x86_64-linux-gnu/13/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include Receiver/QueryHandler.h -o moc_QueryHandler.cpp
+
+moc_UdpListener.cpp: Receiver/UdpListener.h \
+		moc_predefs.h \
+		/usr/lib/qt5/bin/moc
+	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/vladimir/PLC_Sender/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/vladimir/PLC_Sender -I/home/vladimir/PLC_Sender/LIBS/Include -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/13 -I/usr/include/x86_64-linux-gnu/c++/13 -I/usr/include/c++/13/backward -I/usr/lib/gcc/x86_64-linux-gnu/13/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include Receiver/UdpListener.h -o moc_UdpListener.cpp
 
 moc_NoradProcessor.cpp: NoradProcessor.h \
 		LIBS/Include/libsgp4/Tle.h \
@@ -454,14 +471,7 @@ compiler_clean: compiler_moc_predefs_clean compiler_moc_header_clean
 
 ####### Compile
 
-UdpFileSender.o: FileSender/UdpFileSender.cpp FileSender/UdpFileSender.h \
-		FileSender/IFileSenderPLC.h
-	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o UdpFileSender.o FileSender/UdpFileSender.cpp
-
-ReceiverUDP.o: Receiver/ReceiverUDP.cpp Receiver/ReceiverUDP.h
-	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o ReceiverUDP.o Receiver/ReceiverUDP.cpp
-
-DatabaseNoradScheduleSaver.o: ScheduleSaver/DatabaseNoradScheduleSaver.cpp ScheduleSaver/DatabaseNoradScheduleSaver.h \
+UdpSender.o: FileSender/UdpSender.cpp FileSender/UdpSender.h \
 		ScheduleSaver/INoradScheduleSaver.h \
 		LIBS/Include/libsgp4/Observer.h \
 		LIBS/Include/libsgp4/CoordGeodetic.h \
@@ -471,7 +481,13 @@ DatabaseNoradScheduleSaver.o: ScheduleSaver/DatabaseNoradScheduleSaver.cpp Sched
 		LIBS/Include/libsgp4/Vector.h \
 		LIBS/Include/libsgp4/DateTime.h \
 		LIBS/Include/libsgp4/TimeSpan.h
-	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o DatabaseNoradScheduleSaver.o ScheduleSaver/DatabaseNoradScheduleSaver.cpp
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o UdpSender.o FileSender/UdpSender.cpp
+
+QueryHandler.o: Receiver/QueryHandler.cpp Receiver/QueryHandler.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o QueryHandler.o Receiver/QueryHandler.cpp
+
+UdpListener.o: Receiver/UdpListener.cpp Receiver/UdpListener.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o UdpListener.o Receiver/UdpListener.cpp
 
 FileNoradScheduleSaver.o: ScheduleSaver/FileNoradScheduleSaver.cpp Utils/Utility.h \
 		LIBS/Include/libsgp4/DateTime.h \
@@ -529,9 +545,6 @@ TleProcessor.o: TleProcessor.cpp TleProcessor.h \
 		ScheduleSaver/INoradScheduleSaver.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o TleProcessor.o TleProcessor.cpp
 
-UtilResponseParser.o: Utils/UtilResponseParser.cpp Utils/UtilResponseParser.h
-	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o UtilResponseParser.o Utils/UtilResponseParser.cpp
-
 Utility.o: Utils/Utility.cpp Utils/Utility.h \
 		LIBS/Include/libsgp4/DateTime.h \
 		LIBS/Include/libsgp4/TimeSpan.h \
@@ -559,14 +572,19 @@ main.o: main.cpp TleProcessor.h \
 		ScheduleSaver/INoradScheduleSaver.h \
 		ScheduleSaver/FileNoradScheduleSaver.h \
 		Utils/Utility.h \
-		Receiver/ReceiverUDP.h \
-		FileSender/UdpFileSender.h \
-		FileSender/IFileSenderPLC.h \
-		Utils/UtilResponseParser.h
+		Receiver/UdpListener.h \
+		Receiver/QueryHandler.h \
+		FileSender/UdpSender.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o main.cpp
 
-moc_ReceiverUDP.o: moc_ReceiverUDP.cpp 
-	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_ReceiverUDP.o moc_ReceiverUDP.cpp
+moc_UdpSender.o: moc_UdpSender.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_UdpSender.o moc_UdpSender.cpp
+
+moc_QueryHandler.o: moc_QueryHandler.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_QueryHandler.o moc_QueryHandler.cpp
+
+moc_UdpListener.o: moc_UdpListener.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_UdpListener.o moc_UdpListener.cpp
 
 moc_NoradProcessor.o: moc_NoradProcessor.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_NoradProcessor.o moc_NoradProcessor.cpp

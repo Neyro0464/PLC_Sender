@@ -1,28 +1,37 @@
 #include "UdpListener.h"
 #include <QDebug>
 
-UdpListener::UdpListener(quint16 port, QObject *parent)
-    : QObject(parent), listeningPort(port)
+UdpListener::UdpListener(const QHostAddress& address, const quint16 port, QObject *parent)
+    : QObject(parent)
+    , listeningAddress(address)
+    , listeningPort(port)
 {
     socket = new QUdpSocket(this);
 }
 
-UdpListener::~UdpListener() {
-    if (socket) {
-        socket->close();
-        delete socket;
-    }
-}
-
 bool UdpListener::startListening() {
-    if (!socket->bind(QHostAddress::Any, listeningPort)) {
-        qCritical() << "[UdpListener] [startListening]: Failed to bind to port" << listeningPort;
+    if (socket->state() == QAbstractSocket::BoundState) {
+        socket->close();
+    }
+
+    if (!socket->bind(listeningAddress, listeningPort)) {
+        qCritical() << "[UdpListener] [startListening]: Failed to bind to"
+                    << listeningAddress.toString() << ":" << listeningPort;
         return false;
     }
 
     connect(socket, &QUdpSocket::readyRead, this, &UdpListener::processPendingDatagrams);
-    qInfo() << "[UdpListener] [startListening]: UDP Listener started on port" << listeningPort;
+    qInfo() << "[UdpListener] [startListening]: UDP Listener started on"
+            << listeningAddress.toString() << ":" << listeningPort;
     return true;
+}
+
+void UdpListener::setAddress(const QHostAddress& address) {
+    listeningAddress = address;
+}
+
+void UdpListener::setPort(const quint16 port) {
+    listeningPort = port;
 }
 
 void UdpListener::processPendingDatagrams() {

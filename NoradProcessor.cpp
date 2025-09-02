@@ -11,7 +11,7 @@ CNoradProcessor::CNoradProcessor(QObject *parent, double lat, double lon, double
 CNoradProcessor::NORAD_ERROR CNoradProcessor::genSchedule(const uint32_t &satelliteNumber,
                                                           std::vector<NORAD_SCHEDULE> &vecNoradSchedule,
                                                           std::shared_ptr<INoradScheduleSaver> saver,
-                                                          const uint32_t posCalcDelayMkSec,
+                                                          const uint32_t posCalcDelaySec,
                                                           const int delayMks,
                                                           libsgp4::DateTime onDate) const
 {
@@ -32,7 +32,7 @@ CNoradProcessor::NORAD_ERROR CNoradProcessor::genSchedule(const uint32_t &satell
         onDate = onDate.AddSeconds(delayMks);
         libsgp4::DateTime endDate = onDate.AddHours(NORAD_LIMIT_HOURS);
 
-        int stepMks = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::minutes(posCalcDelayMkSec)).count();
+        int stepMks = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::minutes(posCalcDelaySec)).count();
 
         while(1) {
 

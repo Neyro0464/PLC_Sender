@@ -7,22 +7,27 @@
 
 class UdpListener : public QObject {
     Q_OBJECT
-
 public:
-    explicit UdpListener(quint16 port, QObject *parent = nullptr);
-    ~UdpListener();
+    UdpListener(const QHostAddress& address = QHostAddress::Any,
+                const quint16 port = 0,
+                QObject *parent = nullptr);
+    ~UdpListener() = default;
 
     bool startListening();
+    // Можно добавить методы для изменения адреса и порта
+    void setAddress(const QHostAddress& address);
+    void setPort(const quint16 port);
 
-signals:
-    void dataReceived(const QByteArray &data, const QHostAddress &sender, quint16 senderPort);
+private:
+    QUdpSocket* socket;
+    QHostAddress listeningAddress;
+    quint16 listeningPort;
 
 private slots:
     void processPendingDatagrams();
 
-private:
-    QUdpSocket *socket;
-    quint16 listeningPort;
+signals:
+    void dataReceived(const QByteArray& data, const QHostAddress& sender, quint16 senderPort);
 };
 
 #endif // UDPLISTENER_H

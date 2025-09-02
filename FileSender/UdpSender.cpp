@@ -4,21 +4,19 @@
 #include <QTextStream>
 
 // UdpSender.cpp
-UdpSender::UdpSender(std::vector<NORAD_SCHEDULE>& data,
-                     uint32_t satelliteNumber,
+UdpSender::UdpSender(const std::vector<NORAD_SCHEDULE>& data,
+                     const uint32_t satelliteNumber,
                      const QHostAddress& targetAddress,
-                     quint16 targetPort)
-    : m_targetAddress(targetAddress), m_targetPort(targetPort)
+                     const quint16 targetPort,
+                     const uint32_t numberOfPoints,
+                     const uint32_t reserved1,
+                     const uint32_t statusCode)
+    : m_targetAddress(targetAddress), m_targetPort(targetPort),  m_socketBound(false)
 {
     qDebug() << "[UdpSender]: Constructor started";
 
     m_udpSocket = new QUdpSocket(this);
     m_udpSocket->bind(3545);
-
-    if(data.empty()) {
-        qCritical() << "[UdpSender][Constructor]: No data to copy";
-        return;
-    }
 
     try {
         // Текущее время для заголовков
@@ -27,12 +25,14 @@ UdpSender::UdpSender(std::vector<NORAD_SCHEDULE>& data,
         // Первая строка заголовка [0]
         m_header[0].col0 = currentTime;
         m_header[0].col1 = static_cast<uint32_t>(data.size());
-        m_header[0].col2 = 0;
+        m_header[0].col1 = static_cast<uint32_t>(numberOfPoints);
+
+        m_header[0].col2 = 0; // checksum
 
         // Вторая строка заголовка [1]
-        m_header[1].col0 = currentTime;
+        m_header[1].col0 = reserved1;
         m_header[1].col1 = satelliteNumber;
-        m_header[1].col2 = 0;
+        m_header[1].col2 = statusCode; // status code
 
         // Заполняем данные точек
         m_data.resize(data.size());
@@ -176,11 +176,13 @@ float UdpSender::toLittleEndianFloat(float value) {
 
 bool UdpSender::sendData()
 {
-    if (m_data.empty()) {
-        qWarning() << "[UdpSender]: No data to send";
-        emit errorOccurred("No data to send");
-        return false;
-    }
+    closeSocket();
+
+    // if (m_data.empty()) {
+    //     qWarning() << "[UdpSender]: No data to send";
+    //     emit errorOccurred("No data to send");
+    //     return false;
+    // }
 
     debugPrintData();
 
@@ -207,12 +209,22 @@ bool UdpSender::sendData()
     return true;
 }
 
+void UdpSender::closeSocket()
+{
+    if (m_udpSocket && m_socketBound) {
+        m_udpSocket->close();
+        m_socketBound = false;
+        qDebug() << "[UdpSender]: Socket closed";
+    }
+}
+
 UdpSender::~UdpSender()
 {
     qDebug() << "[UdpSender]: Destructor called";
     if (m_udpSocket) {
         m_udpSocket->close();
         delete m_udpSocket;
+        m_socketBound = false;
         m_udpSocket = nullptr;
     }
 }
