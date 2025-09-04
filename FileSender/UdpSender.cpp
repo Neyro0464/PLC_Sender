@@ -23,7 +23,7 @@ UdpSender::UdpSender(const std::vector<NORAD_SCHEDULE>& data,
     } else {
         m_udpSocket = new QUdpSocket(this);
         // Биндим на любой доступный порт
-        if (!m_udpSocket->bind(QHostAddress::Any, 0)) {
+        if (!m_udpSocket->bind(QHostAddress::Any), 0) {
             qWarning() << "[UdpSender]: Failed to bind socket, but will try to send anyway";
         } else {
             qDebug() << "[UdpSender]: Bound to port" << m_udpSocket->localPort();
