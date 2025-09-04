@@ -12,7 +12,7 @@ class UdpSender : public QObject
     Q_OBJECT
 
 private:
-#pragma pack(push, 1)  // Важно для правильного выравнивания
+#pragma pack(push, 1)
     struct HeaderRow {
         uint32_t col0;
         uint32_t col1;
@@ -27,38 +27,32 @@ private:
 
     union DataUnion {
         DataRow data;
-        uint32_t words[3];  // 3 слова по 4 байта
+        uint32_t words[3];
     };
 #pragma pack(pop)
 
     QUdpSocket* m_udpSocket;
     QHostAddress m_targetAddress;
     quint16 m_targetPort;
+    bool m_useExternalSocket; // Флаг для определения, используем ли внешний сокет
 
-    // Отдельные массивы для заголовка и данных
-    HeaderRow m_header[2];  // Две строки заголовка
-    QVector<DataRow> m_data;// Данные точек
+    HeaderRow m_header[2];
+    QVector<DataRow> m_data;
 
-    // Приватные методы для работы с endianness
     static inline uint32_t toLittleEndian32(uint32_t value);
-
     static inline float toLittleEndianFloat(float value);
-
     void calculateCheckSum();
     QByteArray prepareDataForSend() const;
     void closeSocket();
-
-    bool m_socketBound;
-
 
 public:
     UdpSender(const std::vector<NORAD_SCHEDULE>& data,
               const uint32_t satelliteNumber,
               const QHostAddress& targetAddress,
               const quint16 targetPort,
-              const uint32_t numberOfPoints,
               const uint32_t reserved1,
-              const uint32_t statusCode);
+              const uint32_t statusCode,
+              QUdpSocket* externalSocket = nullptr);
     ~UdpSender();
 
     bool sendData();
@@ -66,7 +60,6 @@ public:
         return (2 * sizeof(HeaderRow) + m_data.size() * sizeof(DataRow));
     }
     void debugPrintData() const;
-
 
 signals:
     void dataSent(bool success, qint64 bytesSent);

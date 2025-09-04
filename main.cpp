@@ -1,3 +1,4 @@
+// main.cpp
 #include <QCoreApplication>
 #include <QSettings>
 #include <QFileInfo>
@@ -15,16 +16,12 @@
 int main(int argc, char *argv[]) {
     QCoreApplication a(argc, argv);
 
-
     // Загрузка конфигурации
-
     ServerConfig config("./ServiceFiles/settings.ini");
 
     // --------------------------------------------------
 
-
     // Настройка логирования
-
     Utility::ClearOldLogs(config.getLogFilePath(), config.getLogsLifeTime());
     qInstallMessageHandler(Utility::СustomMessageHandler);
 
@@ -36,8 +33,6 @@ int main(int argc, char *argv[]) {
         qCritical() << "[Main]: Failed to start UDP listener";
         return 1;
     }
-
-
 
     // Обработка входящих UDP пакетов
     QObject::connect(&udpListener, &UdpListener::dataReceived, [&](const QByteArray &data, const QHostAddress &sender, quint16 senderPort) {
@@ -53,7 +48,7 @@ int main(int argc, char *argv[]) {
         if(errorCode != QueryHandler::ErrorCodes::NO_ERROR){
             // Формируем и отправляем ответ
             // Точки измерений, Номер борта, адрес получателя, порт получателя, количество точек, резервное значение, код статуса
-            UdpSender udpSender(scheduleData, queryHandler.getNoradId(), sender, senderPort, queryHandler.getPointsNumb(), 0, errorCode);
+            UdpSender udpSender(scheduleData, queryHandler.getNoradId(), sender, senderPort, 0, errorCode, udpListener.getSocket());
 
             if (udpSender.sendData()) {
                 qInfo() << "[Main]: Response sent successfully to" << sender.toString() << ":" << senderPort;
@@ -67,8 +62,8 @@ int main(int argc, char *argv[]) {
             if(queryHandler.getPointsNumb() == 1){
                 interval = 0;
             } else {
-            // seconds * minutes * hours / (number of points - 1)
-            interval = (60 * 24) / (queryHandler.getPointsNumb() - 1);
+                // seconds * minutes * hours / (number of points - 1)
+                interval = (60 * 24) / (queryHandler.getPointsNumb() - 1);
             }
 
             // Обработчик TLE
@@ -96,7 +91,7 @@ int main(int argc, char *argv[]) {
 
 
                 // Формируем и отправляем ответ
-                UdpSender udpSender(scheduleData, queryHandler.getNoradId(), sender, senderPort, queryHandler.getPointsNumb(), 0, errorCode);
+                UdpSender udpSender(scheduleData, queryHandler.getNoradId(), sender, senderPort, 0, errorCode, udpListener.getSocket());
 
                 if (udpSender.sendData()) {
                     qInfo() << "[Main]: Response sent successfully to" << sender.toString() << ":" << senderPort;

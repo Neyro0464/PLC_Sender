@@ -3,20 +3,32 @@
 #include <QFile>
 #include <QTextStream>
 
-// UdpSender.cpp
 UdpSender::UdpSender(const std::vector<NORAD_SCHEDULE>& data,
                      const uint32_t satelliteNumber,
                      const QHostAddress& targetAddress,
                      const quint16 targetPort,
-                     const uint32_t numberOfPoints,
                      const uint32_t reserved1,
-                     const uint32_t statusCode)
-    : m_targetAddress(targetAddress), m_targetPort(targetPort),  m_socketBound(false)
+                     const uint32_t statusCode,
+                     QUdpSocket* externalSocket)
+    : m_targetAddress(targetAddress),
+    m_targetPort(targetPort),
+    m_useExternalSocket(externalSocket != nullptr)
 {
     qDebug() << "[UdpSender]: Constructor started";
 
-    m_udpSocket = new QUdpSocket(this);
-    m_udpSocket->bind(3545);
+    // Используем внешний сокет или создаем новый
+    if (externalSocket) {
+        m_udpSocket = externalSocket;
+        qDebug() << "[UdpSender]: Using external socket on port" << m_udpSocket->localPort();
+    } else {
+        m_udpSocket = new QUdpSocket(this);
+        // Биндим на любой доступный порт
+        if (!m_udpSocket->bind(QHostAddress::Any, 0)) {
+            qWarning() << "[UdpSender]: Failed to bind socket, but will try to send anyway";
+        } else {
+            qDebug() << "[UdpSender]: Bound to port" << m_udpSocket->localPort();
+        }
+    }
 
     try {
         // Текущее время для заголовков
@@ -25,8 +37,6 @@ UdpSender::UdpSender(const std::vector<NORAD_SCHEDULE>& data,
         // Первая строка заголовка [0]
         m_header[0].col0 = currentTime;
         m_header[0].col1 = static_cast<uint32_t>(data.size());
-        m_header[0].col1 = static_cast<uint32_t>(numberOfPoints);
-
         m_header[0].col2 = 0; // checksum
 
         // Вторая строка заголовка [1]
@@ -41,7 +51,6 @@ UdpSender::UdpSender(const std::vector<NORAD_SCHEDULE>& data,
             m_data[i].azimuth = data[i].azm;
             m_data[i].elevation = data[i].elv;
         }
-
 
         calculateCheckSum();
 
@@ -178,13 +187,7 @@ float UdpSender::toLittleEndianFloat(float value) {
 
 bool UdpSender::sendData()
 {
-    closeSocket();
-
-    // if (m_data.empty()) {
-    //     qWarning() << "[UdpSender]: No data to send";
-    //     emit errorOccurred("No data to send");
-    //     return false;
-    // }
+    closeSocket(); // Это теперь безопасно для внешних сокетов
 
     debugPrintData();
 
@@ -206,16 +209,17 @@ bool UdpSender::sendData()
     }
 
     qInfo() << "[UdpSender]: Successfully sent" << bytesSent << "bytes to"
-            << m_targetAddress.toString() << ":" << m_targetPort;
+            << m_targetAddress.toString() << ":" << m_targetPort
+            << "from port" << m_udpSocket->localPort();
     emit dataSent(true, bytesSent);
     return true;
 }
 
 void UdpSender::closeSocket()
 {
-    if (m_udpSocket && m_socketBound) {
+    // Удаляем только если это наш собственный сокет (не внешний)
+    if (m_udpSocket && !m_useExternalSocket) {
         m_udpSocket->close();
-        m_socketBound = false;
         qDebug() << "[UdpSender]: Socket closed";
     }
 }
@@ -223,10 +227,10 @@ void UdpSender::closeSocket()
 UdpSender::~UdpSender()
 {
     qDebug() << "[UdpSender]: Destructor called";
-    if (m_udpSocket) {
+    // Удаляем сокет только если он был создан внутри этого класса
+    if (m_udpSocket && !m_useExternalSocket) {
         m_udpSocket->close();
         delete m_udpSocket;
-        m_socketBound = false;
         m_udpSocket = nullptr;
     }
 }

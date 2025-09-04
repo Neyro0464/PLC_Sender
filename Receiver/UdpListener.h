@@ -1,3 +1,4 @@
+// UdpListener.h
 #ifndef UDPLISTENER_H
 #define UDPLISTENER_H
 
@@ -17,6 +18,9 @@ public:
     // Можно добавить методы для изменения адреса и порта
     void setAddress(const QHostAddress& address);
     void setPort(const quint16 port);
+
+    // Новый метод для получения сокета
+    QUdpSocket* getSocket() const { return socket; }
 
 private:
     QUdpSocket* socket;
