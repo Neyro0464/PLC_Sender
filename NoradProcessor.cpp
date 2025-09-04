@@ -50,7 +50,7 @@ CNoradProcessor::NORAD_ERROR CNoradProcessor::genSchedule(const uint32_t &satell
 
             onDate = onDate.AddMicroseconds(stepMin);
 
-            if(onDate.Compare(endDate) > 0) break;
+            if(onDate.Compare(endDate) >= 0) break;
         }
 
     } catch (libsgp4::TleException& e) {

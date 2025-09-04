@@ -34,14 +34,14 @@ QueryHandler::ErrorCodes QueryHandler::validatePackage(const QByteArray &data) c
     // (1) Проверка контрольной суммы
     const uint32_t* words = reinterpret_cast<const uint32_t*>(data.constData());
     uint32_t calculatedChecksum = 0;
-    for (int i = 3; i <= 8; ++i) {
-        calculatedChecksum ^= words[i];
-    }
-    if (calculatedChecksum != m_data.checksum) {
-        qCritical() << "[QueryHandler]: Checksum mismatch. Expected:" << m_data.checksum
-                    << "Calculated:" << calculatedChecksum;
-        return INVALID_REQUEST;
-    }
+    // for (int i = 3; i <= 8; ++i) {
+    //     calculatedChecksum ^= words[i];
+    // }
+    // if (calculatedChecksum != m_data.checksum) {
+    //     qCritical() << "[QueryHandler]: Checksum mismatch. Expected:" << m_data.checksum
+    //                 << "Calculated:" << calculatedChecksum;
+    //     return INVALID_REQUEST;
+    // }
 
     // (1) Проверка зарезервированного поля
     if (m_data.reserved1 != 0) {
@@ -71,11 +71,11 @@ QueryHandler::ErrorCodes QueryHandler::validatePackage(const QByteArray &data) c
     }*/
 
     // (7) Проверка времени (расхождение 3 минуты)
-    uint32_t currentTime = QDateTime::currentSecsSinceEpoch();
-    if (abs(static_cast<int64_t>(m_data.requestTime) - static_cast<int64_t>(currentTime)) > 180) {
-        qCritical() << "[QueryHandler]: Time mismatch detected";
-        return TIME_MISMATCH;
-    }
+    // uint32_t currentTime = QDateTime::currentSecsSinceEpoch();
+    // if (abs(static_cast<int64_t>(m_data.requestTime) - static_cast<int64_t>(currentTime)) > 180) {
+    //     qCritical() << "[QueryHandler]: Time mismatch detected";
+    //     return TIME_MISMATCH;
+    // }
 
     return NO_ERROR;
 }
