@@ -43,7 +43,7 @@ void UdpListener::processPendingDatagrams() {
         quint16 senderPort;
 
         socket->readDatagram(datagram.data(), datagram.size(), &sender, &senderPort);
-        qDebug() << "\n-------------------------------\n" << "Received UDP packet:\n" << datagram << "\n-------------------------------";
+        qDebug() << "\n-------------------------------\n" << "Received UDP packet:\n" << datagram.toHex() << "\n-------------------------------";
         emit dataReceived(datagram, sender, senderPort);
     }
 }

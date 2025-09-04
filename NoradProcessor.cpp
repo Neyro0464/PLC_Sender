@@ -11,8 +11,8 @@ CNoradProcessor::CNoradProcessor(QObject *parent, double lat, double lon, double
 CNoradProcessor::NORAD_ERROR CNoradProcessor::genSchedule(const uint32_t &satelliteNumber,
                                                           std::vector<NORAD_SCHEDULE> &vecNoradSchedule,
                                                           std::shared_ptr<INoradScheduleSaver> saver,
-                                                          const uint32_t posCalcDelaySec,
-                                                          const int delayMks,
+                                                          const uint32_t posCalcDelayMin,
+                                                          const int delaySec,
                                                           libsgp4::DateTime onDate) const
 {
     if (m_SatTleMap.empty()) return NORAD_MAP_EMPTY;
@@ -29,10 +29,15 @@ CNoradProcessor::NORAD_ERROR CNoradProcessor::genSchedule(const uint32_t &satell
         libsgp4::Observer obs(m_Lat0, m_Lon0, m_H0/1000.);
         libsgp4::SGP4 sgp4(tle);
 
-        onDate = onDate.AddSeconds(delayMks);
+        onDate = onDate.AddSeconds(delaySec);
         libsgp4::DateTime endDate = onDate.AddHours(NORAD_LIMIT_HOURS);
 
-        int stepMks = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::minutes(posCalcDelaySec)).count();
+        long stepMin = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::minutes(posCalcDelayMin)).count();
+
+        if(posCalcDelayMin == 0){
+            stepMin = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::hours(25)).count();
+        }
+
 
         while(1) {
 
@@ -43,7 +48,7 @@ CNoradProcessor::NORAD_ERROR CNoradProcessor::genSchedule(const uint32_t &satell
                                                         libsgp4::Util::RadiansToDegrees(topo.elevation),
                                                         onDate));
 
-            onDate = onDate.AddMicroseconds(stepMks);
+            onDate = onDate.AddMicroseconds(stepMin);
 
             if(onDate.Compare(endDate) > 0) break;
         }

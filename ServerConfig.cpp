@@ -4,6 +4,7 @@
 #include <QSettings>
 #include <QDir>
 #include <QFile>
+#include <QDebug>
 
 ServerConfig::ServerConfig(const QString& filename){
     QFileInfo settingsFileInfo(filename);

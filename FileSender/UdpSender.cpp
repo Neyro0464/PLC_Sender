@@ -53,36 +53,38 @@ UdpSender::UdpSender(const std::vector<NORAD_SCHEDULE>& data,
 
 void UdpSender::calculateCheckSum()
 {
-    if (m_data.empty()) return;
+
 
     // Сначала XOR второй строки заголовка
     uint32_t checksum = m_header[1].col0 ^ m_header[1].col1 ^ m_header[1].col2;
 
-    // Теперь обрабатываем все данные через union
-    DataUnion u;
-    for (const auto& point : m_data) {
-        // Копируем данные в union
-        u.data.time = point.time;
-        u.data.azimuth = point.azimuth;
-        u.data.elevation = point.elevation;
+    if (!m_data.empty()){
+        // Теперь обрабатываем все данные через union
+        DataUnion u;
+        for (const auto& point : m_data) {
+            // Копируем данные в union
+            u.data.time = point.time;
+            u.data.azimuth = point.azimuth;
+            u.data.elevation = point.elevation;
 
-        // XOR всех слов
-        checksum ^= u.words[0];  // time
-        checksum ^= u.words[1];  // azimuth как uint32_t
-        checksum ^= u.words[2];  // elevation как uint32_t
+            // XOR всех слов
+            checksum ^= u.words[0];  // time
+            checksum ^= u.words[1];  // azimuth как uint32_t
+            checksum ^= u.words[2];  // elevation как uint32_t
+        }
     }
 
     // Записываем результат в заголовок
     m_header[0].col2 = checksum;
 
-    qDebug() << "[UdpSender]: Checksum calculated:"
-             << QString("0x%1").arg(checksum, 8, 16, QChar('0'));
+    // qDebug() << "[UdpSender]: Checksum calculated:"
+    //          << QString("0x%1").arg(checksum, 8, 16, QChar('0'));
 
-    // Отладочный вывод для проверки
-    DataUnion debug;
-    debug.data.azimuth = m_data[0].azimuth;
-    qDebug() << "First azimuth as float:" << m_data[0].azimuth
-             << "as uint32:" << QString("0x%1").arg(debug.words[1], 8, 16, QChar('0'));
+    // // Отладочный вывод для проверки
+    // DataUnion debug;
+    // debug.data.azimuth = m_data[0].azimuth;
+    // qDebug() << "First azimuth as float:" << m_data[0].azimuth
+    //          << "as uint32:" << QString("0x%1").arg(debug.words[1], 8, 16, QChar('0'));
 }
 
 QByteArray UdpSender::prepareDataForSend() const

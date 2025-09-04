@@ -12,6 +12,8 @@
 #include <QDateTime>
 #include <QTextStream>
 #include <QDebug>
+#include <QEventLoop>
+#include <QTimer>
 
 CTleProcessor::CTleProcessor(std::unique_ptr<INoradScheduleSaver> saver, double lat, double lon, double altm)
 {
@@ -29,36 +31,31 @@ bool CTleProcessor::downloadTleFromUrl(const uint32_t satelliteNumber, const QSt
         return true;
     }
 
+    QEventLoop loop;
+    bool success = false;
+
     QNetworkAccessManager *manager = new QNetworkAccessManager(this);
 
-    // Настраиваем прокси для использования определенного порта
-    QNetworkProxy proxy;
-    proxy.setType(QNetworkProxy::HttpProxy);
-    proxy.setHostName("127.0.0.1");
-    proxy.setPort(port); // Используем порт из конфигурации
-    manager->setProxy(proxy);
-
+    // Добавляем таймаут для всей операции
+    QTimer::singleShot(10000, &loop, &QEventLoop::quit);
 
     QUrl loginUrl("https://www.space-track.org/ajaxauth/login");
     QNetworkRequest loginRequest(loginUrl);
     loginRequest.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
     loginRequest.setTransferTimeout(10000);
 
-    QString loginData = QString("identity=%1&password=%2").arg(QString::fromStdString(username.toStdString())).arg(QString::fromStdString(password.toStdString()));
+    QString loginData = QString("identity=%1&password=%2").arg(username).arg(password);
     QByteArray postData = loginData.toUtf8();
 
     qInfo() << "[CTleProcessor::downloadTleFromUrl]: Authenticating with Space-Track for satellite:" << satelliteNumber;
 
     QNetworkReply *loginReply = manager->post(loginRequest, postData);
 
-
-    // Log in to download tle
-    connect(loginReply, &QNetworkReply::finished, this, [=]() {
-        bool success = false;
+    connect(loginReply, &QNetworkReply::finished, [&]() {
         int httpStatus = loginReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         qDebug() << "[CTleProcessor::downloadTleFromUrl]: Login HTTP status:" << httpStatus << " | Error code:" << loginReply->error();
-        if (loginReply->error() == QNetworkReply::NoError && httpStatus == 200)
-        {
+
+        if (loginReply->error() == QNetworkReply::NoError && httpStatus == 200) {
             qInfo() << "[CTleProcessor::downloadTleFromUrl]: Login successful. Now downloading TLE data for " << satelliteNumber;
             QString urlString = QString(url).arg(satelliteNumber);
             QUrl queryUrl(urlString);
@@ -66,32 +63,37 @@ bool CTleProcessor::downloadTleFromUrl(const uint32_t satelliteNumber, const QSt
             queryRequest.setTransferTimeout(10000);
             QNetworkReply *queryReply = manager->get(queryRequest);
 
-            // When we logged in, Send query to take tle data
-            connect(queryReply, &QNetworkReply::finished, this, [=]() mutable{
+            connect(queryReply, &QNetworkReply::finished, [&, queryReply, manager]() {
                 int queryHttpStatus = queryReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-                qDebug() << "[CTleProcessor::downloadTleFromUrl]: Query HTTP status:" << queryHttpStatus << " | Error code:" << queryReply->error();
+                qDebug() << "[CTleProcessor::downloadTleFromUrl]: Query HTTP status:" << queryHttpStatus
+                         << " | Error code:" << queryReply->error();
 
                 if (queryReply->error() == QNetworkReply::NoError && queryHttpStatus == 200) {
                     QString outputFile = QString::fromStdString(savePath.toStdString());
                     QFile file(outputFile);
 
-                    // If tle data received successfuly, then save downloaded data in file
                     if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
                         QByteArray data = queryReply->readAll();
                         file.write(data);
                         file.close();
-                        qInfo() << "[CTleProcessor::downloadTleFromUrl]: Data successfully saved to" << outputFile << " | Data size:" << data.size();  // Added: Confirm data was written
+                        qInfo() << "[CTleProcessor::downloadTleFromUrl]: Data successfully saved to"
+                                << outputFile << " | Data size:" << data.size();
                         success = true;
                     } else {
-                        qCritical() << "[CTleProcessor::downloadTleFromUrl]: Error: Unable to open file" << outputFile << "for writing";
+                        qCritical() << "[CTleProcessor::downloadTleFromUrl]: Error: Unable to open file"
+                                    << outputFile << "for writing";
                     }
-                } else{
-                    qCritical() << "[CTleProcessor::downloadTleFromUrl]: Error downloading TLE data:" << queryReply->errorString();
+                } else {
+                    qCritical() << "[CTleProcessor::downloadTleFromUrl]: Error downloading TLE data:"
+                                << queryReply->errorString();
                 }
+
+                // Выполняем logout
                 queryReply->deleteLater();
                 QUrl logoutUrl("https://www.space-track.org/ajaxauth/logout");
                 QNetworkRequest logoutRequest(logoutUrl);
                 QNetworkReply *logoutReply = manager->get(logoutRequest);
+
                 connect(logoutReply, &QNetworkReply::finished, this, [=]() {
                     qDebug() << "Logout completed. HTTP status:" << logoutReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()
                              << " | Error:" << logoutReply->error();
@@ -99,16 +101,21 @@ bool CTleProcessor::downloadTleFromUrl(const uint32_t satelliteNumber, const QSt
                 });
                 manager->deleteLater();
                 emit tleDownloaded(success);
-            });
+                loop.quit();  // Завершаем цикл событий только после полного завершения всех операций
+                });
+
         } else {
             qCritical() << "[CTleProcessor::downloadTleFromUrl]: Login failed:" << loginReply->errorString();
             loginReply->deleteLater();
             manager->deleteLater();
-            emit tleDownloaded(success);
+            emit tleDownloaded(false);
+            loop.quit();
         }
     });
 
-    return true;
+    loginReply->deleteLater();
+    loop.exec();  // Ждем завершения всех операций
+    return success;
 }
 
 bool CTleProcessor::isTleFileValid(const QString& filePath, uint32_t satelliteNumber, const uint32_t tleCacheHours) {

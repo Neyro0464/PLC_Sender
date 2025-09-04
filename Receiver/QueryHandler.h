@@ -55,8 +55,9 @@ public:
 
 
 private:
+    uint32_t MAX_POINTS;
     ErrorCodes validatePackage(const QByteArray &data) const;
     ControllerHeader m_data;
-    uint32_t MAX_POINTS;
+
 };
 #endif // QUERYHANDLER_H

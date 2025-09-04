@@ -60,14 +60,15 @@ QueryHandler::ErrorCodes QueryHandler::validatePackage(const QByteArray &data) c
         qCritical() << "[QueryHandler]: Invalid latitude:" << m_data.latitude;
         return INVALID_REQUEST;
     }
-    if (m_data.longitude < -180.0f || m_data.longitude > 180.0f) {
+    if (m_data.longitude < 0.0f || m_data.longitude > 360.0f) {
         qCritical() << "[QueryHandler]: Invalid longitude:" << m_data.longitude;
         return INVALID_REQUEST;
     }
-    if(m_data.altitude < 0){
+    /*
+    if(m_data.altitude == 0){
         qCritical() << "[QueryHandler]: Invalid altitude:" << m_data.altitude;
         return INVALID_REQUEST;
-    }
+    }*/
 
     // (7) Проверка времени (расхождение 3 минуты)
     uint32_t currentTime = QDateTime::currentSecsSinceEpoch();
